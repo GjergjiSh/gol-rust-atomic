@@ -1,3 +1,5 @@
+use std::cell::UnsafeCell;
+
 use crate::gol::cell::Cell;
 
 // 2D interface to a vector of cells
@@ -80,6 +82,22 @@ impl<const H: usize, const W: usize> Grid<H, W> {
             let other_cell = &other.cells[i];
 
             cell.compare_and_swap(other_cell);
+        }
+    }
+
+    #[inline]
+    // Unsafe copy the state of the grid to another grid
+    pub fn unsafe_copy_from(&self, other: &Self) {
+        let count = self.cells.len();
+        let grid = UnsafeCell::new(&self);
+        let other = UnsafeCell::new(other);
+
+        // let grid_cells: *mut Grid<H, W> = unsafe { &mut **(*grid.get()) };
+        // // let grid_cells = unsafe { &mut *grid_cells };
+        // let other_cells = unsafe { &mut (*other.get()).cells };
+
+        unsafe {
+            // std::ptr::copy_nonoverlapping(other_cells.as_mut_ptr(), grid_cells, count);
         }
     }
 
@@ -389,8 +407,14 @@ mod tests {
             set_0b0001_0001(&mut other, i);
         }
 
+        let start = std::time::Instant::now();
         // Copy the state of the other grid to the grid
         grid.copy_from(&other);
+        let end = std::time::Instant::now();
+        println!(
+            "Safe: Time taken to copy the state of the other grid to the grid: {:?}",
+            end - start
+        );
 
         // Check if the state of the grid is the same as the other grid
         for i in 0..grid.cells.len() {
@@ -407,6 +431,44 @@ mod tests {
             assert_eq!(cell.neighbors(), 8);
             assert_eq!(cell.fetch(), 0b0001_0001);
         }
+    }
+
+    #[test]
+    fn test_unsafe_copy() {
+        use std::cell::UnsafeCell;
+
+        let mut grid = Grid::<4, 4>::new();
+        let mut other = Grid::<4, 4>::new();
+
+        let grid = UnsafeCell::new(grid);
+        let other = UnsafeCell::new(other);
+
+        let other_cells = unsafe { &mut (*other.get()).cells };
+        let count = other_cells.len();
+
+        for cell in other_cells {
+            cell.store(0b0001_0001);
+        }
+
+        let start = std::time::Instant::now();
+        unsafe {
+            let grid_cells = &mut (*grid.get()).cells;
+            let other_cells = &*(*other.get()).cells;
+
+            assert_eq!(
+                grid_cells.len(),
+                other_cells.len(),
+                "Vectors must have the same length"
+            );
+
+            // SAFETY: The vectors have the same length and type
+            std::ptr::copy_nonoverlapping(other_cells.as_ptr(), grid_cells.as_mut_ptr(), count);
+        }
+        let end = std::time::Instant::now();
+        println!(
+            "Unsafe: Time taken to copy the state of the other grid to the grid: {:?}",
+            end - start
+        );
     }
 
     #[test]

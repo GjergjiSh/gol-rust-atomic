@@ -13,7 +13,7 @@ pub struct Cell {
     store: Ordering,
 }
 
-// Implement Cell: All functions are atomic bitwise operations
+// Implement Cell: All functions are atomic operations
 impl Cell {
     // Creates a new cell with the specified load and store orderings
     pub fn new(fetch: Ordering, store: Ordering) -> Self {
@@ -29,7 +29,7 @@ impl Cell {
     }
 
     #[inline]
-    // Bitwise operation to set the first bit to 1
+    // Bitwise atomic operation to set the first bit to 1
     pub fn spawn(&self) {
         self.state
             .fetch_update(self.store, self.fetch, |old| Some(old | 1))
@@ -37,7 +37,7 @@ impl Cell {
     }
 
     #[inline]
-    // Bitwise operation to set the first bit to 0
+    // Bitwise atomic operation to set the first bit to 0
     pub fn kill(&self) {
         self.state
             .fetch_update(self.store, self.fetch, |old| Some(old & !1))
@@ -45,13 +45,13 @@ impl Cell {
     }
 
     #[inline]
-    // Bitwise operation to get the number of neighbors
+    // Bitwise atomic operation to get the number of neighbors
     pub fn neighbors(&self) -> u8 {
         (self.state.load(self.fetch) >> 1) & 0b0000_1111
     }
 
     #[inline]
-    // Bitwise operation to increment the number of neighbors
+    // Bitwise atomic operation to increment the number of neighbors
     pub fn add_neighbor(&self) {
         self.state
             .fetch_update(self.store, self.fetch, |mut old| {
@@ -70,7 +70,7 @@ impl Cell {
     }
 
     #[inline]
-    // Bitwise operation to decrement the number of neighbors
+    // Bitwise atomic operation to decrement the number of neighbors
     pub fn remove_neighbor(&self) {
         self.state
             .fetch_update(self.store, self.fetch, |mut old| {
@@ -89,27 +89,39 @@ impl Cell {
     }
 
     #[inline]
-    // Bitwise operation, returns true if the first bit is 1
+    // Bitwise atomic operation, returns true if the first bit is 1
     pub fn alive(&self) -> bool {
         self.state.load(self.fetch) & 1 == 1
     }
 
     #[inline]
-    // Loads the value of the cell with the specified ordering
+    // Atomically loads the value of the cell with the specified ordering
     pub fn fetch(&self) -> u8 {
         self.state.load(self.fetch)
     }
 
     #[inline]
-    // Stores the value of the cell with the specified ordering
+    // Atomically stores the value of the cell with the specified ordering
     pub fn store(&self, value: u8) {
         self.state.store(value, self.store);
     }
 
     #[inline]
+    // Atomically swap the value of the cell with another cell
     pub fn compare_and_swap(&self, other: &Cell) {
         self.state
             .compare_and_swap(self.state.load(self.fetch), other.fetch(), self.fetch);
+    }
+
+    #[inline]
+    // Atomically exchange the value of the cell with another cell
+    pub fn compare_and_exchange(&self, other: &Cell) {
+        self.state.compare_exchange(
+            self.state.load(self.fetch),
+            other.fetch(),
+            self.fetch,
+            self.store,
+        );
     }
 }
 
