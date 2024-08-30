@@ -1,6 +1,8 @@
 use crate::gol::cell::Cell;
 
 // 2D interface to a vector of cells
+// Changes to the contained cells are atomic and a mutable reference
+// to the grid is not required to change its state
 pub struct Grid<const H: usize, const W: usize> {
     cells: Vec<Cell>,
 }
@@ -191,7 +193,7 @@ mod tests {
     fn test_create_grid() {
         const H: usize = 1000;
         const W: usize = 1000;
-        let mut grid = Grid::<H,W>::new();
+        let mut grid = Grid::<H, W>::new();
         assert_eq!(grid.cells.len(), H * W);
     }
 

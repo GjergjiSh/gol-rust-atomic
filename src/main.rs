@@ -12,11 +12,12 @@ const BENCHMARKS: usize = 10;
 // Single threaded
 pub fn single_threaded() {
     let grid: Grid<H, W> = Grid::<H, W>::new();
-    let mut display: Option<Display<H, W>> = None;
+    let grid = Arc::new(&grid);
 
     randomize_grid(&grid);
 
-    let generator = Generator::<H, W>::new(grid);
+    let generator = Generator::<H, W>::new(Arc::clone(&grid));
+    let mut display = None;
 
     if DISPLAY {
         let grid_ref = Arc::new(generator.grid());

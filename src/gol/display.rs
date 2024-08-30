@@ -62,18 +62,17 @@ mod tests {
     pub const GLIDER_OFFSETS: [(isize, isize); 5] = [(2, 0), (2, 1), (2, 2), (1, 2), (0, 1)];
 
     #[test]
-    fn test_display() {
+    fn test_glider_display() {
         const H: usize = 100;
         const W: usize = 100;
         const GENERATIONS: usize = 1000;
 
         let grid: Grid<H, W> = Grid::<H, W>::new();
-
+        let grid = Arc::new(&grid);
         grid.spawn_shape((0, 0), &GLIDER_OFFSETS);
-        let mut generator = Generator::<H, W>::new(grid);
 
-        let mut grid = Arc::new(generator.grid());
-        let mut display = Display::<H, W>::new(grid, 0);
+        let mut generator = Generator::<H, W>::new(Arc::clone(&grid));
+        let mut display = Display::<H, W>::new(Arc::clone(&grid), 0);
 
         for _ in 0..GENERATIONS {
             generator.generate();
@@ -88,12 +87,12 @@ mod tests {
         const GENERATIONS: usize = 1000;
 
         let grid: Grid<H, W> = Grid::<H, W>::new();
+        let grid = Arc::new(&grid);
+
         randomize_grid(&grid);
 
-        let mut generator = Generator::<H, W>::new(grid);
-
-        let mut grid = Arc::new(generator.grid());
-        let mut display = Display::<H, W>::new(grid, 0);
+        let generator = Generator::<H, W>::new(Arc::clone(&grid));
+        let mut display = Display::<H, W>::new(Arc::clone(&grid), 0);
 
         for _ in 0..GENERATIONS {
             generator.generate();

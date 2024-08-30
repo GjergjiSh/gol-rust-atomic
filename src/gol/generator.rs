@@ -1,12 +1,14 @@
 use crate::gol::{cell::Cell, grid::Grid};
 
-pub struct Generator<const H: usize, const W: usize> {
-    grid: Grid<H, W>,
+use std::sync::Arc;
+
+pub struct Generator<'a, const H: usize, const W: usize> {
+    grid: Arc<&'a Grid<H, W>>,
     cache: Grid<H, W>,
 }
 
-impl<const H: usize, const W: usize> Generator<H, W> {
-    pub fn new(grid: Grid<H,W>) -> Self {
+impl<'a , const H: usize, const W: usize> Generator<'a , H, W> {
+    pub fn new(grid: Arc<&'a Grid<H, W>>) -> Self {
         Self {
             grid: grid,
             cache: Grid::new(),
