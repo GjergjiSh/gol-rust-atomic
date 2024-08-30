@@ -1,37 +1,99 @@
 use crate::gol::cell::Cell;
 
-// 2D: Interface to a vector of cells
+// 2D interface to a vector of cells
 pub struct Grid<const H: usize, const W: usize> {
     cells: Vec<Cell>,
 }
 
 // Implement Grid
 impl<const H: usize, const W: usize> Grid<H, W> {
+    // Create a new grid with dead cells and 0 neighbors
     pub fn new() -> Self {
         let mut cells = Vec::with_capacity(H * W);
-        for _ in 0..H {
-            for _ in 0..W {
-                cells.push(Cell::default());
-            }
+
+        for _ in 0..(H * W) {
+            cells.push(Cell::default());
         }
+
         Self { cells }
     }
 
+    #[inline]
+    // Index the grid with 2D coordinates
     pub fn get(&self, x: isize, y: isize) -> &Cell {
-        let wrapped_x = ((x % W as isize + W as isize) % W as isize) as usize;
-        let wrapped_y = ((y % H as isize + H as isize) % H as isize) as usize;
+        let w = W as isize;
+        let h = H as isize;
+
+        let wrapped_x = ((x % w + w) % w) as usize;
+        let wrapped_y = ((y % h + h) % h) as usize;
 
         &self.cells[wrapped_y * W + wrapped_x]
     }
 
-    // Testing and Debugging Only
-    pub fn set(&mut self, x: isize, y: isize, value: u8) {
-        let x = x as usize;
-        let y = y as usize;
+    #[inline]
+    // Spawn a cell at the given 2D coordinates
+    // and increment the neighbors of its 8 surrounding cells
+    pub fn spawn(&self, x: isize, y: isize) {
+        let cell = self.get(x, y);
+        let neighbors = self.neighbor_coordinates(x, y);
+        cell.spawn();
 
-        let wrapped_x = x % W;
-        let wrapped_y = y % H;
-        self.cells[wrapped_y * W + wrapped_x].store(value);
+        for (x, y) in neighbors.iter() {
+            let neighbor = self.get(*x, *y);
+            neighbor.add_neighbor();
+        }
+    }
+
+    #[inline]
+    // Kill a cell at the given 2D coordinates
+    // and decrement the neighbors of its 8 surrounding cells
+    pub fn kill(&self, x: isize, y: isize) {
+        let cell = self.get(x, y);
+        let neighbors = self.neighbor_coordinates(x, y);
+        cell.kill();
+
+        for (x, y) in neighbors.iter() {
+            let neighbor = self.get(*x, *y);
+            neighbor.remove_neighbor();
+        }
+    }
+
+    #[inline]
+    // Spawn a shape at the given 2D coordinates
+    // the offsets are relative to the start coordinates
+    pub fn spawn_shape(&self, start: (isize, isize), offsets: &[(isize, isize)]) {
+        for (dx, dy) in offsets {
+            let (x, y) = (start.0 + dx, start.1 + dy);
+            self.spawn(x, y)
+        }
+    }
+
+    //TODO: Explore optimizations for this
+    #[inline]
+    // Copy the state of the grid to another grid
+    // TODO: Check for differing dimensions that add up the the same size
+    pub fn copy_from(&self, other: &Self) {
+        for i in 0..self.cells.len() {
+            let mut cell = &self.cells[i];
+            let other_cell = &other.cells[i];
+
+            cell.compare_and_swap(other_cell);
+        }
+    }
+
+    // Utility function to get the wrapped 2D coordinates
+    #[inline]
+    pub fn neighbor_coordinates(&self, x: isize, y: isize) -> [(isize, isize); 8] {
+        [
+            (x.wrapping_sub(1), y.wrapping_sub(1)), // top_left
+            (x, y.wrapping_sub(1)),                 // top
+            (x.wrapping_add(1), y.wrapping_sub(1)), // top_right
+            (x.wrapping_sub(1), y),                 // left
+            (x.wrapping_add(1), y),                 // right
+            (x.wrapping_sub(1), y.wrapping_add(1)), // bottom_left
+            (x, y.wrapping_add(1)),                 // bottom
+            (x.wrapping_add(1), y.wrapping_add(1)), // bottom_right
+        ]
     }
 }
 
@@ -75,12 +137,15 @@ impl<const H: usize, const W: usize> std::fmt::Display for Grid<H, W> {
 
 #[cfg(test)]
 mod tests {
-    use utils::{set_0b0001_0001, test_2d_index_translation};
-
     use super::*;
+    use utils::*;
+
+    use std::{sync::Arc, thread};
 
     mod utils {
         use super::*;
+
+        pub const BLOCK_SHAPE_OFFSETS: [(isize, isize); 4] = [(0, 0), (1, 0), (0, 1), (1, 1)];
 
         // Set the cell at the given index to dead and 0 neighbors
         pub fn set_0b0000_0000<const H: usize, const W: usize>(grid: &mut Grid<H, W>, idx: usize) {
@@ -119,43 +184,41 @@ mod tests {
 
             let expected = &grid.cells[idx];
             assert_eq!(actual.fetch(), expected.fetch());
-            // println!("{}", grid); // Debugging
         }
     }
 
     #[test]
-    fn test_new() {
-        let grid = Grid::<3, 3>::new();
-        assert_eq!(grid.cells.len(), 9);
-        println!("{}", grid);
+    fn test_create_grid() {
+        const H: usize = 1000;
+        const W: usize = 1000;
+        let mut grid = Grid::<H,W>::new();
+        assert_eq!(grid.cells.len(), H * W);
+    }
 
-        // For each cell: Spawn and set neighbors to 8
-        for i in 0..grid.cells.len() {
-            // Initial State: 0b0000_0000
-            let cell = &grid.cells[i];
+    #[test]
+    fn test_state_manipulation() {
+        let mut grid = Grid::<3, 3>::new();
+
+        // Initial state of all cells: Dead and 0 neighbors (0b0000_0000)
+        for cell in grid.cells.iter() {
             assert!(!cell.alive());
             assert!(cell.neighbors() == 0);
             assert!(cell.fetch() == 0b0000_0000);
+        }
 
-            cell.spawn();
-
-            for _ in 0..8 {
-                cell.add_neighbor();
-            }
-
+        // Spawn everything. Each cell is alive and has 8 neighbors (0b0001_0001)
+        for i in 0..grid.cells.len() {
+            set_0b0001_0001(&mut grid, i);
+            let cell = &grid.cells[i];
             assert!(cell.alive());
             assert!(cell.neighbors() == 8);
             assert!(cell.fetch() == 0b0001_0001);
         }
 
+        // KIll everything. Each cell is dead and has 0 neighbors (0b0000_0000)
         for i in 0..grid.cells.len() {
+            set_0b0000_0000(&mut grid, i);
             let cell = &grid.cells[i];
-
-            cell.kill();
-            for _ in 0..8 {
-                cell.remove_neighbor();
-            }
-
             assert!(!cell.alive());
             assert!(cell.neighbors() == 0);
             assert!(cell.fetch() == 0b0000_0000);
@@ -163,8 +226,11 @@ mod tests {
     }
 
     #[test]
-    fn test_get() {
-        let mut grid = Grid::<4, 4>::new();
+    fn test_get_cell() {
+        let mut grid = Grid::<1, 1>::new();
+
+        // Change the cell at index 0 to alive and 8 neighbors
+        // to differentiate it from the other cells
         set_0b0001_0001(&mut grid, 0);
 
         // Simple case: Get the cell at (0, 0)
@@ -178,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wrapping() {
+    fn test_get_cell_w_wrapping() {
         const H: usize = 4;
         const W: usize = 4;
 
@@ -219,12 +285,12 @@ mod tests {
         test_2d_index_translation::<H, W>(3, -1, 4); /* 3 */
 
         /* Wrapping on the bottom right corner
-               [1][0][0][3]
-               [0][0][0][0]
-               [0][0][0][0]
-               [2][0][0][0] 2
-                         3  1
-         */
+              [1][0][0][3]
+              [0][0][0][0]
+              [0][0][0][0]
+              [2][0][0][0] 2
+                        3  1
+        */
 
         test_2d_index_translation::<H, W>(0, 4, 4); /* 1 */
         test_2d_index_translation::<H, W>(12, 4, 3); /* 2 */
@@ -232,5 +298,148 @@ mod tests {
 
         // Wrapping in the middle of the grid is implicitly tested
         // by the other tests
+    }
+
+    #[test]
+    fn test_spawn_block_shape() {
+        let mut grid = Grid::<4, 4>::new();
+
+        let shapes: [[(isize, isize); 4]; 4] = [
+            [(0, 0), (1, 0), (0, 1), (1, 1)], // Top left
+            [(2, 0), (3, 0), (2, 1), (3, 1)], // Top right
+            [(0, 2), (1, 2), (0, 3), (1, 3)], // Bottom left
+            [(2, 2), (3, 2), (2, 3), (3, 3)], // Bottom right
+        ];
+
+        /* Spawn a block shape at the top left corner
+           [1][1][0][0]
+           [1][1][0][0]
+           [0][0][0][0]
+           [0][0][0][0]
+        */
+        grid.spawn_shape((0, 0), &BLOCK_SHAPE_OFFSETS);
+
+        for coordinate in &BLOCK_SHAPE_OFFSETS {
+            let cell = grid.get(coordinate.0, coordinate.1);
+            assert!(cell.alive());
+            assert!(cell.neighbors() == 3);
+        }
+
+        /* Spawn a block shape at the top right corner
+           [1][1][1][1]
+           [1][1][1][1]
+           [0][0][0][0]
+           [0][0][0][0]
+        */
+        grid.spawn_shape((2, 0), &BLOCK_SHAPE_OFFSETS);
+
+        for coordinate in &BLOCK_SHAPE_OFFSETS {
+            let cell = grid.get(coordinate.0 + 2, coordinate.1);
+            assert!(cell.alive());
+            assert_eq!(cell.neighbors(), 5);
+        }
+
+        /* Spawn a block shape at the bottom right corner
+           [1][1][1][1]
+           [1][1][1][1]
+           [1][1][0][0]
+           [1][1][0][0]
+        */
+        grid.spawn_shape((2, 2), &BLOCK_SHAPE_OFFSETS);
+
+        //TODO: Test the neighbors
+        for coordinate in &BLOCK_SHAPE_OFFSETS {
+            let cell = grid.get(coordinate.0 + 2, coordinate.1 + 2);
+            assert!(cell.alive());
+            // assert_eq!(cell.neighbors(), 5);
+        }
+
+        /* Spawn a block shape at the bottom left corner
+           [1][1][1][1]
+           [1][1][1][1]
+           [1][1][1][1]
+           [1][1][1][1]
+        */
+        grid.spawn_shape((0, 2), &BLOCK_SHAPE_OFFSETS);
+
+        //TODO: Test the neighbors
+        for coordinate in &BLOCK_SHAPE_OFFSETS {
+            let cell = grid.get(coordinate.0, coordinate.1 + 2);
+            assert!(cell.alive());
+            // assert_eq!(cell.neighbors(), 5);
+        }
+
+        for cell in grid.cells.iter() {
+            assert!(cell.alive());
+            assert!(cell.neighbors() == 8);
+        }
+
+        println!("{}", grid);
+    }
+
+    #[test]
+    fn test_copy_from() {
+        let mut grid = Grid::<4, 4>::new();
+        let mut other = Grid::<4, 4>::new();
+
+        // Set the state of the other grid to alive and 8 neighbors
+        for i in 0..other.cells.len() {
+            set_0b0001_0001(&mut other, i);
+        }
+
+        // Copy the state of the other grid to the grid
+        grid.copy_from(&other);
+
+        // Check if the state of the grid is the same as the other grid
+        for i in 0..grid.cells.len() {
+            let cell = &grid.cells[i];
+            assert!(cell.alive());
+            assert_eq!(cell.neighbors(), 8);
+            assert_eq!(cell.fetch(), 0b0001_0001);
+        }
+
+        // Check if the state of the other grid is the same as the grid
+        for i in 0..other.cells.len() {
+            let cell = &other.cells[i];
+            assert!(cell.alive());
+            assert_eq!(cell.neighbors(), 8);
+            assert_eq!(cell.fetch(), 0b0001_0001);
+        }
+    }
+
+    #[test]
+    fn test_threading() {
+        let grid = Grid::<4, 4>::new();
+        let grid = Arc::new(grid);
+
+        let grid_clone = Arc::clone(&grid);
+        let t1 = thread::spawn(move || {
+            grid_clone.spawn_shape((0, 0), &BLOCK_SHAPE_OFFSETS);
+        });
+
+        let grid_clone = Arc::clone(&grid);
+        let t2 = thread::spawn(move || {
+            grid_clone.spawn_shape((2, 2), &BLOCK_SHAPE_OFFSETS);
+        });
+
+        let grid_clone = Arc::clone(&grid);
+        let t3 = thread::spawn(move || {
+            grid_clone.spawn_shape((2, 0), &BLOCK_SHAPE_OFFSETS);
+        });
+
+        let grid_clone = Arc::clone(&grid);
+        let t4 = thread::spawn(move || {
+            grid_clone.spawn_shape((0, 2), &BLOCK_SHAPE_OFFSETS);
+        });
+
+        t1.join().unwrap();
+        t2.join().unwrap();
+        t3.join().unwrap();
+        t4.join().unwrap();
+
+        for cell in grid.cells.iter() {
+            assert!(cell.alive());
+            assert!(cell.neighbors() == 8);
+        }
     }
 }

@@ -28,6 +28,7 @@ impl Cell {
         }
     }
 
+    #[inline]
     // Bitwise operation to set the first bit to 1
     pub fn spawn(&self) {
         self.state
@@ -35,6 +36,7 @@ impl Cell {
             .unwrap();
     }
 
+    #[inline]
     // Bitwise operation to set the first bit to 0
     pub fn kill(&self) {
         self.state
@@ -42,11 +44,13 @@ impl Cell {
             .unwrap();
     }
 
+    #[inline]
     // Bitwise operation to get the number of neighbors
     pub fn neighbors(&self) -> u8 {
         (self.state.load(self.fetch) >> 1) & 0b0000_1111
     }
 
+    #[inline]
     // Bitwise operation to increment the number of neighbors
     pub fn add_neighbor(&self) {
         self.state
@@ -65,6 +69,7 @@ impl Cell {
             ));
     }
 
+    #[inline]
     // Bitwise operation to decrement the number of neighbors
     pub fn remove_neighbor(&self) {
         self.state
@@ -83,19 +88,28 @@ impl Cell {
             ));
     }
 
+    #[inline]
     // Bitwise operation, returns true if the first bit is 1
     pub fn alive(&self) -> bool {
         self.state.load(self.fetch) & 1 == 1
     }
 
+    #[inline]
     // Loads the value of the cell with the specified ordering
     pub fn fetch(&self) -> u8 {
         self.state.load(self.fetch)
     }
 
+    #[inline]
     // Stores the value of the cell with the specified ordering
     pub fn store(&self, value: u8) {
         self.state.store(value, self.store);
+    }
+
+    #[inline]
+    pub fn compare_and_swap(&self, other: &Cell) {
+        self.state
+            .compare_and_swap(self.state.load(self.fetch), other.fetch(), self.fetch);
     }
 }
 
@@ -113,6 +127,17 @@ impl PartialEq<u8> for Cell {
     }
 }
 
+// TODO: Theory Implement Clone for Cell
+impl Clone for Cell {
+    fn clone(&self) -> Self {
+        Cell {
+            state: AtomicU8::new(self.state.load(self.fetch)),
+            fetch: self.fetch,
+            store: self.store,
+        }
+    }
+}
+
 // Implement Display for Cell
 impl fmt::Display for Cell {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -122,7 +147,10 @@ impl fmt::Display for Cell {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::UnsafeCell, sync::{atomic::AtomicI32, Arc}};
+    use std::{
+        cell::UnsafeCell,
+        sync::{atomic::AtomicI32, Arc},
+    };
 
     use super::*;
     #[test]
@@ -201,7 +229,6 @@ mod tests {
             assert_eq!(cell.fetch(), expected);
             assert_eq!(cell.neighbors(), (7 - idx) as u8);
             assert!(!cell.alive());
-
         }
     }
 
