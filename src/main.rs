@@ -13,7 +13,7 @@ const BENCHMARKS: usize = 10;
 
 // Single threaded
 pub fn single_threaded() -> (Duration, Duration, f32) {
-    let grid: Grid<H, W> = Grid::<H, W>::new();
+    let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
     let grid = Arc::new(&grid);
 
     randomize_grid(&grid);

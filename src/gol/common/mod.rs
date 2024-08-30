@@ -1,11 +1,12 @@
-use super::grid::Grid;
+use super::grid::AtomicGrid;
+use super::cell::{AtomicCell, CellType};
 
-pub trait IGenerator<const H: usize, const W: usize> {
+pub trait Generator<const H: usize, const W: usize> {
     fn generate(&self);
-    fn grid(&self) -> &Grid<H, W>;
+    fn grid(&self) -> &AtomicGrid<H, W>;
 }
 
-pub trait ICell {
+pub trait Cell {
     fn spawn(&self);
     fn kill(&self);
     fn neighbors(&self) -> u8;
@@ -19,9 +20,10 @@ pub trait ICell {
 pub trait IGrid<const H: usize, const W: usize> {
     fn spawn(&self, x: isize, y: isize);
     fn kill(&self, x: isize, y: isize);
-    fn unsafe_copy_from(&self, other: &Grid<H, W>);
+    fn unsafe_copy_from(&self, other: &AtomicGrid<H, W>);
     fn spawn_shape(&self, start: (isize, isize), offsets: &[(isize, isize)]);
 
     //TODO: Coupling here and LISKOV violation
     // fn get(&self, x: isize, y: isize) -> &AtomicCell;
+    // fn get(&self, x: isize, y: isize) -> &Cell;
 }

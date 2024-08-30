@@ -9,11 +9,11 @@ pub mod utils;
 pub mod common;
 pub mod launcher;
 
-pub use cell::AtomicCell;
-pub use grid::Grid;
+pub use cell::{AtomicCell, CellType};
+pub use grid::AtomicGrid;
 pub use generator::SingleThreadedGenerator;
 pub use display::Display;
 pub use utils::randomize_grid;
-pub use common::{IGenerator, ICell};
+pub use common::{Generator, Cell};
 
 pub use std::sync::Arc;

@@ -6,7 +6,11 @@ use std::{
     },
 };
 
-use crate::common::ICell;
+use crate::common::Cell;
+
+pub enum CellType<'a> {
+    AtomicCell(&'a AtomicCell),
+}
 
 // Wrapper around an AtomicU8 to represent a cell in the grid
 pub struct AtomicCell {
@@ -30,27 +34,6 @@ impl AtomicCell {
         }
     }
 
-    #[inline]
-    // Atomically swap the value of the cell with another cell
-    pub fn compare_and_swap(&self, other: &AtomicCell) {
-        self.state
-            .compare_and_swap(self.state.load(self.fetch), other.fetch(), self.fetch);
-    }
-
-    #[inline]
-    // Atomically exchange the value of the cell with another cell
-    pub fn compare_and_exchange(&self, other: &AtomicCell) {
-        self.state.compare_exchange(
-            self.state.load(self.fetch),
-            other.fetch(),
-            self.fetch,
-            self.store,
-        );
-    }
-}
-
-// Implement cell interface for Cell
-impl ICell for AtomicCell {
     #[inline]
     // Bitwise atomic operation to set the first bit to 1
     fn spawn(&self) {
@@ -127,6 +110,59 @@ impl ICell for AtomicCell {
     // Atomically stores the value of the cell with the specified ordering
     fn store(&self, value: u8) {
         self.state.store(value, self.store);
+    }
+
+    #[inline]
+    // Atomically swap the value of the cell with another cell
+    pub fn compare_and_swap(&self, other: &AtomicCell) {
+        self.state
+            .compare_and_swap(self.state.load(self.fetch), other.fetch(), self.fetch);
+    }
+
+    #[inline]
+    // Atomically exchange the value of the cell with another cell
+    pub fn compare_and_exchange(&self, other: &AtomicCell) {
+        self.state.compare_exchange(
+            self.state.load(self.fetch),
+            other.fetch(),
+            self.fetch,
+            self.store,
+        );
+    }
+}
+
+// Implement ICell for Cell
+impl Cell for AtomicCell {
+    fn spawn(&self) {
+        self.spawn();
+    }
+
+    fn kill(&self) {
+        self.kill();
+    }
+
+    fn neighbors(&self) -> u8 {
+        self.neighbors()
+    }
+
+    fn add_neighbor(&self) {
+        self.add_neighbor();
+    }
+
+    fn remove_neighbor(&self) {
+        self.remove_neighbor();
+    }
+
+    fn alive(&self) -> bool {
+        self.alive()
+    }
+
+    fn fetch(&self) -> u8 {
+        self.fetch()
+    }
+
+    fn store(&self, value: u8) {
+        self.store(value);
     }
 }
 

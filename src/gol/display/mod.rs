@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::grid::Grid;
-use crate::common::ICell;
+use crate::grid::AtomicGrid;
+use crate::common::Cell;
 use minifb::{Window, WindowOptions};
 
 const COLOR_ALIVE: u32 = 0xFFFFFF; // White
@@ -10,14 +10,14 @@ const SCALE: usize = 10; // Upscaling factor
 
 // Display window for the Game of Life
 pub struct Display<'a, const H: usize, const W: usize> {
-    grid: Arc<&'a Grid<H, W>>,
+    grid: Arc<&'a AtomicGrid<H, W>>,
     window: Window,
     delay: u64,
 }
 
 // Implement Display
 impl<'a, const H: usize, const W: usize> Display<'a, H, W> {
-    pub fn new(grid: Arc<&'a Grid<H, W>>, delay: u64) -> Self {
+    pub fn new(grid: Arc<&'a AtomicGrid<H, W>>, delay: u64) -> Self {
         let window = Window::new(
             "Conway's Game of Life",
             W * SCALE,
@@ -68,7 +68,7 @@ mod tests {
         const W: usize = 100;
         const GENERATIONS: usize = 1000;
 
-        let grid: Grid<H, W> = Grid::<H, W>::new();
+        let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
         let grid = Arc::new(&grid);
         grid.spawn_shape((0, 0), &GLIDER_OFFSETS);
 
@@ -87,7 +87,7 @@ mod tests {
         const W: usize = 100;
         const GENERATIONS: usize = 1000;
 
-        let grid: Grid<H, W> = Grid::<H, W>::new();
+        let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
         let grid = Arc::new(&grid);
 
         randomize_grid(&grid);

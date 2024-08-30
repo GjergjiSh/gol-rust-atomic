@@ -1,17 +1,19 @@
 use std::cell::UnsafeCell;
 
-use crate::common::{IGrid, ICell};
 use crate::cell::AtomicCell;
+use crate::common::{Cell, IGrid};
+
+use super::CellType;
 
 // 2D interface to a vector of cells
 // Changes to the contained cells are atomic and a mutable reference
 // to the grid is not required to change its state
-pub struct Grid<const H: usize, const W: usize> {
+pub struct AtomicGrid<const H: usize, const W: usize> {
     cells: Vec<AtomicCell>,
 }
 
 // Implement Grid
-impl<const H: usize, const W: usize> Grid<H, W> {
+impl<const H: usize, const W: usize> AtomicGrid<H, W> {
     // Create a new grid with dead cells and 0 neighbors
     pub fn new() -> Self {
         let mut cells = Vec::with_capacity(H * W);
@@ -73,8 +75,8 @@ impl<const H: usize, const W: usize> Grid<H, W> {
         }
     }
 
-    //TODO: Explore optimizations for this
     #[inline]
+    //TODO: Explore optimizations for this
     // Copy the state of the grid to another grid
     // TODO: Check for differing dimensions that add up the the same size
     pub fn copy_from(&self, other: &Self) {
@@ -106,8 +108,8 @@ impl<const H: usize, const W: usize> Grid<H, W> {
         );
     }
 
-    // Utility function to get the wrapped 2D coordinates
     #[inline]
+    // Utility function to get the wrapped 2D coordinates
     pub fn neighbor_coordinates(&self, x: isize, y: isize) -> [(isize, isize); 8] {
         [
             (x.wrapping_sub(1), y.wrapping_sub(1)), // top_left
@@ -122,8 +124,35 @@ impl<const H: usize, const W: usize> Grid<H, W> {
     }
 }
 
+// Implement IGrid for Grid
+impl<const H: usize, const W: usize> IGrid<H, W> for AtomicGrid<H, W> {
+    fn spawn(&self, x: isize, y: isize) {
+        self.spawn(x, y);
+    }
+
+    fn kill(&self, x: isize, y: isize) {
+        self.kill(x, y);
+    }
+
+    fn unsafe_copy_from(&self, other: &AtomicGrid<H, W>) {
+        unsafe {
+            self.unsafe_copy_from(other);
+        }
+    }
+
+    fn spawn_shape(&self, start: (isize, isize), offsets: &[(isize, isize)]) {
+        self.spawn_shape(start, offsets);
+    }
+
+    /*// TODO:
+     fn get(&self, x: isize, y: isize) -> &Cell<'_> {
+           self.get(x, y)
+       }
+    */
+}
+
 // Implement Display for Grid
-impl<const H: usize, const W: usize> std::fmt::Display for Grid<H, W> {
+impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print the top border with column indices
         print!("   "); // Space for row indices
@@ -173,7 +202,7 @@ mod tests {
         pub const BLOCK_SHAPE_OFFSETS: [(isize, isize); 4] = [(0, 0), (1, 0), (0, 1), (1, 1)];
 
         // Set the cell at the given index to dead and 0 neighbors
-        pub fn set_0b0000_0000<const H: usize, const W: usize>(grid: &mut Grid<H, W>, idx: usize) {
+        pub fn set_0b0000_0000<const H: usize, const W: usize>(grid: &mut AtomicGrid<H, W>, idx: usize) {
             let cell = &mut grid.cells[idx];
 
             while (cell.neighbors() > 0) {
@@ -184,7 +213,7 @@ mod tests {
         }
 
         // Set the cell at the given index to alive and 8 neighbors
-        pub fn set_0b0001_0001<const H: usize, const W: usize>(grid: &mut Grid<H, W>, idx: usize) {
+        pub fn set_0b0001_0001<const H: usize, const W: usize>(grid: &mut AtomicGrid<H, W>, idx: usize) {
             let cell = &mut grid.cells[idx];
 
             while (cell.neighbors() < 8) {
@@ -200,7 +229,7 @@ mod tests {
             x: isize,
             y: isize,
         ) {
-            let mut grid = Grid::<H, W>::new();
+            let mut grid = AtomicGrid::<H, W>::new();
             set_0b0001_0001(&mut grid, idx);
 
             let actual = grid.get(x, y);
@@ -216,13 +245,13 @@ mod tests {
     fn test_create_grid() {
         const H: usize = 1000;
         const W: usize = 1000;
-        let mut grid = Grid::<H, W>::new();
+        let mut grid = AtomicGrid::<H, W>::new();
         assert_eq!(grid.cells.len(), H * W);
     }
 
     #[test]
     fn test_state_manipulation() {
-        let mut grid = Grid::<3, 3>::new();
+        let mut grid = AtomicGrid::<3, 3>::new();
 
         // Initial state of all cells: Dead and 0 neighbors (0b0000_0000)
         for cell in grid.cells.iter() {
@@ -252,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_get_cell() {
-        let mut grid = Grid::<1, 1>::new();
+        let mut grid = AtomicGrid::<1, 1>::new();
 
         // Change the cell at index 0 to alive and 8 neighbors
         // to differentiate it from the other cells
@@ -327,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_spawn_block_shape() {
-        let mut grid = Grid::<4, 4>::new();
+        let mut grid = AtomicGrid::<4, 4>::new();
 
         let shapes: [[(isize, isize); 4]; 4] = [
             [(0, 0), (1, 0), (0, 1), (1, 1)], // Top left
@@ -404,8 +433,8 @@ mod tests {
 
     #[test]
     fn test_copy_from() {
-        let mut grid = Grid::<4, 4>::new();
-        let mut other = Grid::<4, 4>::new();
+        let mut grid = AtomicGrid::<4, 4>::new();
+        let mut other = AtomicGrid::<4, 4>::new();
 
         // Set the state of the other grid to alive and 8 neighbors
         for i in 0..other.cells.len() {
@@ -442,8 +471,8 @@ mod tests {
     fn test_raw_unsafe_copy() {
         use std::cell::UnsafeCell;
 
-        let mut grid = Grid::<4, 4>::new();
-        let mut other = Grid::<4, 4>::new();
+        let mut grid = AtomicGrid::<4, 4>::new();
+        let mut other = AtomicGrid::<4, 4>::new();
 
         let grid = UnsafeCell::new(grid);
         let other = UnsafeCell::new(other);
@@ -478,8 +507,8 @@ mod tests {
 
     #[test]
     fn test_unsafe_copy() {
-        let mut grid = Grid::<4, 4>::new();
-        let mut other = Grid::<4, 4>::new();
+        let mut grid = AtomicGrid::<4, 4>::new();
+        let mut other = AtomicGrid::<4, 4>::new();
 
         // Set the state of the other grid to alive and 8 neighbors
         for i in 0..other.cells.len() {
@@ -508,7 +537,7 @@ mod tests {
 
     #[test]
     fn test_threading() {
-        let grid = Grid::<4, 4>::new();
+        let grid = AtomicGrid::<4, 4>::new();
         let grid = Arc::new(grid);
 
         let grid_clone = Arc::clone(&grid);

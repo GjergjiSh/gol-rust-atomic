@@ -1,26 +1,24 @@
 use crate::{
     cell::AtomicCell,
-    common::{ICell, IGenerator},
-    grid::Grid,
+    common::{Cell, Generator},
+    grid::AtomicGrid,
 };
 
 use std::sync::Arc;
 
 pub struct SingleThreadedGenerator<'a, const H: usize, const W: usize> {
-    grid: Arc<&'a Grid<H, W>>,
-    cache: Grid<H, W>,
+    grid: Arc<&'a AtomicGrid<H, W>>,
+    cache: AtomicGrid<H, W>,
 }
 
 impl<'a, const H: usize, const W: usize> SingleThreadedGenerator<'a, H, W> {
-    pub fn new(grid: Arc<&'a Grid<H, W>>) -> Self {
+    pub fn new(grid: Arc<&'a AtomicGrid<H, W>>) -> Self {
         Self {
             grid: grid,
-            cache: Grid::new(),
+            cache: AtomicGrid::new(),
         }
     }
-}
 
-impl<'a, const H: usize, const W: usize> IGenerator<H, W> for SingleThreadedGenerator<'a, H, W> {
     fn generate(&self) {
         unsafe {
             self.cache.unsafe_copy_from(&self.grid);
@@ -52,7 +50,17 @@ impl<'a, const H: usize, const W: usize> IGenerator<H, W> for SingleThreadedGene
         }
     }
 
-    fn grid(&self) -> &Grid<H, W> {
+    fn grid(&self) -> &AtomicGrid<H, W> {
         &self.grid
+    }
+}
+
+impl<'a, const H: usize, const W: usize> Generator<H, W> for SingleThreadedGenerator<'a, H, W> {
+    fn generate(&self) {
+        self.generate();
+    }
+
+    fn grid(&self) -> &AtomicGrid<H, W> {
+        self.grid()
     }
 }
