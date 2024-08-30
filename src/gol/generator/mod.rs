@@ -1,21 +1,27 @@
-use crate::gol::{cell::Cell, grid::Grid};
+use crate::{
+    cell::AtomicCell,
+    common::{ICell, IGenerator},
+    grid::Grid,
+};
 
 use std::sync::Arc;
 
-pub struct Generator<'a, const H: usize, const W: usize> {
+pub struct SingleThreadedGenerator<'a, const H: usize, const W: usize> {
     grid: Arc<&'a Grid<H, W>>,
     cache: Grid<H, W>,
 }
 
-impl<'a , const H: usize, const W: usize> Generator<'a , H, W> {
+impl<'a, const H: usize, const W: usize> SingleThreadedGenerator<'a, H, W> {
     pub fn new(grid: Arc<&'a Grid<H, W>>) -> Self {
         Self {
             grid: grid,
             cache: Grid::new(),
         }
     }
+}
 
-    pub fn generate(&self) {
+impl<'a, const H: usize, const W: usize> IGenerator<H, W> for SingleThreadedGenerator<'a, H, W> {
+    fn generate(&self) {
         unsafe {
             self.cache.unsafe_copy_from(&self.grid);
         }
@@ -46,7 +52,7 @@ impl<'a , const H: usize, const W: usize> Generator<'a , H, W> {
         }
     }
 
-    pub fn grid(&self) -> &Grid<H, W> {
+    fn grid(&self) -> &Grid<H, W> {
         &self.grid
     }
 }

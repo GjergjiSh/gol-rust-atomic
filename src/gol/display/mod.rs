@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::gol::grid::Grid;
+use crate::grid::Grid;
+use crate::common::ICell;
 use minifb::{Window, WindowOptions};
 
 const COLOR_ALIVE: u32 = 0xFFFFFF; // White
@@ -71,7 +72,7 @@ mod tests {
         let grid = Arc::new(&grid);
         grid.spawn_shape((0, 0), &GLIDER_OFFSETS);
 
-        let mut generator = Generator::<H, W>::new(Arc::clone(&grid));
+        let mut generator = SingleThreadedGenerator::<H, W>::new(Arc::clone(&grid));
         let mut display = Display::<H, W>::new(Arc::clone(&grid), 0);
 
         for _ in 0..GENERATIONS {
@@ -91,7 +92,7 @@ mod tests {
 
         randomize_grid(&grid);
 
-        let generator = Generator::<H, W>::new(Arc::clone(&grid));
+        let generator = SingleThreadedGenerator::<H, W>::new(Arc::clone(&grid));
         let mut display = Display::<H, W>::new(Arc::clone(&grid), 0);
 
         for _ in 0..GENERATIONS {

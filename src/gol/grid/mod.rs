@@ -1,12 +1,13 @@
 use std::cell::UnsafeCell;
 
-use crate::gol::cell::Cell;
+use crate::common::ICell;
+use crate::cell::AtomicCell;
 
 // 2D interface to a vector of cells
 // Changes to the contained cells are atomic and a mutable reference
 // to the grid is not required to change its state
 pub struct Grid<const H: usize, const W: usize> {
-    cells: Vec<Cell>,
+    cells: Vec<AtomicCell>,
 }
 
 // Implement Grid
@@ -16,7 +17,7 @@ impl<const H: usize, const W: usize> Grid<H, W> {
         let mut cells = Vec::with_capacity(H * W);
 
         for _ in 0..(H * W) {
-            cells.push(Cell::default());
+            cells.push(AtomicCell::default());
         }
 
         Self { cells }
@@ -24,7 +25,7 @@ impl<const H: usize, const W: usize> Grid<H, W> {
 
     #[inline]
     // Index the grid with 2D coordinates
-    pub fn get(&self, x: isize, y: isize) -> &Cell {
+    pub fn get(&self, x: isize, y: isize) -> &AtomicCell {
         let w = W as isize;
         let h = H as isize;
 
@@ -100,7 +101,7 @@ impl<const H: usize, const W: usize> Grid<H, W> {
         // Perform the unsafe memory copy
         std::ptr::copy_nonoverlapping(
             other.cells.as_ptr(),
-            self.cells.as_ptr() as *mut Cell,
+            self.cells.as_ptr() as *mut AtomicCell,
             self.cells.len(),
         );
     }

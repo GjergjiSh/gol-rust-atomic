@@ -16,7 +16,7 @@ pub fn single_threaded() {
 
     randomize_grid(&grid);
 
-    let generator = Generator::<H, W>::new(Arc::clone(&grid));
+    let generator = SingleThreadedGenerator::<H, W>::new(Arc::clone(&grid));
     let mut display = None;
 
     if DISPLAY {
