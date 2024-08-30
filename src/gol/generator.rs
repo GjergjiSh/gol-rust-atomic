@@ -27,7 +27,7 @@ impl<'a , const H: usize, const W: usize> Generator<'a , H, W> {
 
                 let cell = self.cache.get(x, y);
 
-                if *cell == 0b00000000 {
+                if cell.fetch() == 0b0000_0000 {
                     continue;
                 }
 
