@@ -137,7 +137,7 @@ impl<const H: usize, const W: usize> std::fmt::Display for Grid<H, W> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::gol::*;
     use utils::*;
 
     use std::{sync::Arc, thread};

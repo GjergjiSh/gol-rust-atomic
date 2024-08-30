@@ -55,19 +55,41 @@ impl<'a, const H: usize, const W: usize> Display<'a, H, W> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::gol::{cell::Cell, generator::Generator};
+    use crate::gol::*;
+
     use std::{borrow::BorrowMut, sync::Arc};
+
+    pub const GLIDER_OFFSETS: [(isize, isize); 5] = [(2, 0), (2, 1), (2, 2), (1, 2), (0, 1)];
 
     #[test]
     fn test_display() {
         const H: usize = 100;
         const W: usize = 100;
-        const GENERATIONS: usize = 100;
+        const GENERATIONS: usize = 1000;
 
-        let grid: Grid<100, 100> = Grid::<H, W>::new();
+        let grid: Grid<H, W> = Grid::<H, W>::new();
 
-        grid.spawn_shape((0,0), &[(0, 0), (1, 0), (0, 1), (1, 1)]);
+        grid.spawn_shape((0, 0), &GLIDER_OFFSETS);
+        let mut generator = Generator::<H, W>::new(grid);
+
+        let mut grid = Arc::new(generator.grid());
+        let mut display = Display::<H, W>::new(grid, 0);
+
+        for _ in 0..GENERATIONS {
+            generator.generate();
+            display.update();
+        }
+    }
+
+    #[test]
+    fn test_random_display() {
+        const H: usize = 100;
+        const W: usize = 100;
+        const GENERATIONS: usize = 1000;
+
+        let grid: Grid<H, W> = Grid::<H, W>::new();
+        randomize_grid(&grid);
+
         let mut generator = Generator::<H, W>::new(grid);
 
         let mut grid = Arc::new(generator.grid());
