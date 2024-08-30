@@ -87,18 +87,22 @@ impl<const H: usize, const W: usize> Grid<H, W> {
 
     #[inline]
     // Unsafe copy the state of the grid to another grid
-    pub fn unsafe_copy_from(&self, other: &Self) {
-        let count = self.cells.len();
-        let grid = UnsafeCell::new(&self);
-        let other = UnsafeCell::new(other);
+    // SAFETY: The grids must have the same size. The function
+    // is only meant to be used in single-threaded contexts
+    pub unsafe fn unsafe_copy_from(&self, other: &Self) {
+        // Check if the grids have the same size
+        assert_eq!(
+            self.cells.len(),
+            other.cells.len(),
+            "Grids must have the same size"
+        );
 
-        // let grid_cells: *mut Grid<H, W> = unsafe { &mut **(*grid.get()) };
-        // // let grid_cells = unsafe { &mut *grid_cells };
-        // let other_cells = unsafe { &mut (*other.get()).cells };
-
-        unsafe {
-            // std::ptr::copy_nonoverlapping(other_cells.as_mut_ptr(), grid_cells, count);
-        }
+        // Perform the unsafe memory copy
+        std::ptr::copy_nonoverlapping(
+            other.cells.as_ptr(),
+            self.cells.as_ptr() as *mut Cell,
+            self.cells.len(),
+        );
     }
 
     // Utility function to get the wrapped 2D coordinates
@@ -434,7 +438,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unsafe_copy() {
+    fn test_raw_unsafe_copy() {
         use std::cell::UnsafeCell;
 
         let mut grid = Grid::<4, 4>::new();
@@ -469,6 +473,36 @@ mod tests {
             "Unsafe: Time taken to copy the state of the other grid to the grid: {:?}",
             end - start
         );
+    }
+
+    #[test]
+    fn test_unsafe_copy() {
+        let mut grid = Grid::<4, 4>::new();
+        let mut other = Grid::<4, 4>::new();
+
+        // Set the state of the other grid to alive and 8 neighbors
+        for i in 0..other.cells.len() {
+            set_0b0001_0001(&mut other, i);
+        }
+
+        let start = std::time::Instant::now();
+        // Copy the state of the other grid to the grid
+        unsafe {
+            grid.unsafe_copy_from(&other);
+        }
+        let end = std::time::Instant::now();
+        println!(
+            "Unsafe: Time taken to copy the state of the other grid to the grid: {:?}",
+            end - start
+        );
+
+        // Check if the state of the grid is the same as the other grid
+        for i in 0..grid.cells.len() {
+            let cell = &grid.cells[i];
+            assert!(cell.alive());
+            assert_eq!(cell.neighbors(), 8);
+            assert_eq!(cell.fetch(), 0b0001_0001);
+        }
     }
 
     #[test]

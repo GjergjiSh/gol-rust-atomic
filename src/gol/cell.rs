@@ -128,7 +128,7 @@ impl Cell {
 // Implement Default for Cell
 impl Default for Cell {
     fn default() -> Self {
-        Cell::new(Ordering::Relaxed, Ordering::Relaxed)
+        Cell::new(Ordering::Acquire, Ordering::Release)
     }
 }
 

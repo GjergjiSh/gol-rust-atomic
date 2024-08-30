@@ -16,7 +16,9 @@ impl<'a , const H: usize, const W: usize> Generator<'a , H, W> {
     }
 
     pub fn generate(&self) {
-        self.cache.copy_from(&self.grid);
+        unsafe {
+            self.cache.unsafe_copy_from(&self.grid);
+        }
 
         for x in 0..H {
             for y in 0..W {
