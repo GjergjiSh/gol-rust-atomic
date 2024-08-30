@@ -7,6 +7,7 @@ pub mod generator;
 pub mod display;
 pub mod utils;
 pub mod common;
+pub mod launcher;
 
 pub use cell::AtomicCell;
 pub use grid::Grid;

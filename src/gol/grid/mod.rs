@@ -1,6 +1,6 @@
 use std::cell::UnsafeCell;
 
-use crate::common::ICell;
+use crate::common::{IGrid, ICell};
 use crate::cell::AtomicCell;
 
 // 2D interface to a vector of cells

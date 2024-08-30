@@ -15,3 +15,13 @@ pub trait ICell {
     fn fetch(&self) -> u8;
     fn store(&self, value: u8);
 }
+
+pub trait IGrid<const H: usize, const W: usize> {
+    fn spawn(&self, x: isize, y: isize);
+    fn kill(&self, x: isize, y: isize);
+    fn unsafe_copy_from(&self, other: &Grid<H, W>);
+    fn spawn_shape(&self, start: (isize, isize), offsets: &[(isize, isize)]);
+
+    //TODO: Coupling here and LISKOV violation
+    // fn get(&self, x: isize, y: isize) -> &AtomicCell;
+}
