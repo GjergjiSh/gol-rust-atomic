@@ -2,7 +2,7 @@ use std::{
     fmt,
     sync::atomic::{
         AtomicU8,
-        Ordering::{self, AcqRel, Acquire, Release},
+        Ordering::{self, AcqRel, Acquire, Release, SeqCst},
     },
 };
 
@@ -13,7 +13,7 @@ pub struct Cell {
     store: Ordering,
 }
 
-// Implement Cell
+// Implement Cell: All functions are atomic bitwise operations
 impl Cell {
     // Creates a new cell with the specified load and store orderings
     pub fn new(fetch: Ordering, store: Ordering) -> Self {
@@ -89,15 +89,20 @@ impl Cell {
     }
 
     // Loads the value of the cell with the specified ordering
-    pub fn load(&self) -> u8 {
+    pub fn fetch(&self) -> u8 {
         self.state.load(self.fetch)
+    }
+
+    // Stores the value of the cell with the specified ordering
+    pub fn store(&self, value: u8) {
+        self.state.store(value, self.store);
     }
 }
 
 // Implement Default for Cell
 impl Default for Cell {
     fn default() -> Self {
-        Cell::new(Ordering::Acquire, Ordering::Release)
+        Cell::new(Ordering::SeqCst, Ordering::SeqCst)
     }
 }
 
@@ -111,7 +116,7 @@ impl PartialEq<u8> for Cell {
 // Implement Display for Cell
 impl fmt::Display for Cell {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:08b}", self.load())
+        write!(f, "{:08b}", self.fetch())
     }
 }
 
@@ -120,88 +125,83 @@ mod tests {
     use std::{cell::UnsafeCell, sync::{atomic::AtomicI32, Arc}};
 
     use super::*;
-
     #[test]
-    fn test_spawn() {
-        let mut cell = Cell::new(Acquire, Release);
+    fn test_spawn_kill() {
+        let mut cell = Cell::default();
         cell.spawn();
-        assert_eq!(cell.load(), 1);
-    }
-
-    #[test]
-    fn test_kill() {
-        let mut cell = Cell::new(Acquire, Release);
-        cell.spawn();
-        assert_eq!(cell.load(), 1);
+        assert_eq!(cell.fetch(), 1);
         assert!(cell.alive());
         cell.kill();
-        assert_eq!(cell.load(), 0);
+        assert_eq!(cell.fetch(), 0);
         assert!(!cell.alive());
         cell.spawn();
-        assert_eq!(cell.load(), 1);
+        assert_eq!(cell.fetch(), 1);
         assert!(cell.alive());
     }
 
     #[test]
     fn test_neighbors() {
-        let mut cell = Cell::new(Acquire, Release);
+        let mut cell = Cell::default();
         assert_eq!(cell.neighbors(), 0);
         assert!(!cell.alive());
-        assert!(cell.load() == 0b0000_0000);
+        assert!(cell.fetch() == 0b0000_0000);
 
-        // Spawn the cell to test if incrementing/decrementing affects
-        // the first bit
+        // Spawn the cell to test if incrementing affects the first bit
         cell.spawn();
 
         let mut expected_values: [u8; 8] = [
-            0b0000_0011, // 1 neighbor
-            0b0000_0101, // 2 neighbors
-            0b0000_0111, // 3 neighbors
-            0b0000_1001, // 4 neighbors
-            0b0000_1011, // 5 neighbors
-            0b0000_1101, // 6 neighbors
-            0b0000_1111, // 7 neighbors
-            0b0001_0001, // 8 neighbors
+            0b000_0001_1, // Alive and 1 neighbor
+            0b000_0010_1, // Alive and 2 neighbors
+            0b000_0011_1, // Alive and 3 neighbors
+            0b000_0100_1, // Alive and 4 neighbors
+            0b000_0101_1, // Alive and 5 neighbors
+            0b000_0110_1, // Alive and 6 neighbors
+            0b000_0111_1, // Alive and 7 neighbors
+            0b000_1000_1, // Alive and 8 neighbors
         ];
 
-        // Initially there are no neighbors
-        // and the cell is alive
-        assert_eq!(cell.load(), 0b0000_0001);
+        // Initially there are no neighbors and the cell is alive
+        assert_eq!(cell.fetch(), 0b0000_0001);
         assert!(cell.alive());
         assert!(cell.neighbors() == 0);
 
-        // Add neighbors starting from none to 8
+        // Add neighbors starting from none to 8 and check the expected values
         for idx in 0..8 {
             cell.add_neighbor();
             let expected = expected_values[idx];
-            assert_eq!(cell.load(), expected);
+            assert_eq!(cell.fetch(), expected);
             assert_eq!(cell.neighbors(), (idx + 1) as u8);
+            assert!(cell.alive());
         }
 
+        // Kill the cell to test if decrementing affects the first bit
+        cell.kill();
+
         let mut expected_values: [u8; 8] = [
-            0b0000_1111, // 7 neighbors
-            0b0000_1101, // 6 neighbors
-            0b0000_1011, // 5 neighbors
-            0b0000_1001, // 4 neighbors
-            0b0000_0111, // 3 neighbors
-            0b0000_0101, // 2 neighbors
-            0b0000_0011, // 1 neighbor
-            0b0000_0001, // 0 neighbors
+            0b000_0111_0, // Alive and 7 neighbors
+            0b000_0110_0, // Alive and 6 neighbors
+            0b000_0101_0, // Alive and 5 neighbors
+            0b000_0100_0, // Alive and 4 neighbors
+            0b000_0011_0, // Alive and 3 neighbors
+            0b000_0010_0, // Alive and 2 neighbors
+            0b000_0001_0, // Alive and 1 neighbor
+            0b000_0000_0, // Alive and 0 neighbors
         ];
 
-        // Initially there are 8 neighbors
-        // and the cell is alive
-        assert_eq!(cell.load(), 0b0001_0001);
-        assert!(cell.alive());
+        // Initially there are 8 neighbors and the cell is dead
+        assert_eq!(cell.fetch(), 0b0001_0000);
+        assert!(!cell.alive());
         assert!(cell.neighbors() == 8);
 
         // Remove neighbors starting from 8 to none
         for idx in 0..8 {
             cell.remove_neighbor();
             let expected = expected_values[idx];
-            let current = cell.load();
-            assert_eq!(cell.load(), expected);
+            let current = cell.fetch();
+            assert_eq!(cell.fetch(), expected);
             assert_eq!(cell.neighbors(), (7 - idx) as u8);
+            assert!(!cell.alive());
+
         }
     }
 
@@ -222,6 +222,7 @@ mod tests {
 
         let iterations = 100_000;
         let thread_count = 4;
+        let expected_value = iterations * thread_count;
         let mut handles = vec![];
 
         for _ in 0..thread_count {
@@ -243,9 +244,9 @@ mod tests {
         }
 
         // The value should not be what we expect because of the interleaving
-        assert_ne!(unsafe { *value.0.get() }, iterations * thread_count);
+        assert_ne!(unsafe { *value.0.get() }, expected_value);
 
-
+        // Relaxed is enough for increments
         const FETCH: Ordering = Ordering::Relaxed;
 
         struct AtomicWrapper(AtomicI32);
@@ -259,6 +260,7 @@ mod tests {
         let value = Arc::new(AtomicWrapper(AtomicI32::new(0)));
         let mut handles = vec![];
 
+        // Spawn threads to increment the value
         for _ in 0..thread_count {
             let value_clone = Arc::clone(&value);
             let handle = thread::spawn(move || {
@@ -277,6 +279,6 @@ mod tests {
         }
 
         // The value should be what we expect because of the atomic operations
-        assert_eq!(value.0.load(FETCH), iterations * thread_count);
+        assert_eq!(value.0.load(FETCH), expected_value);
     }
 }
