@@ -20,14 +20,15 @@ impl<'a, const H: usize, const W: usize> AtomicGenerator<'a, H, W> {
         }
     }
 
-    /*     #[inline]
-    pub fn generate(&self) {
-        // TODO: SAFETY: ??
-        unsafe {
-            self.u_update_cache();
-        }
-        self.update_grid();
-    } */
+    #[inline]
+    pub fn grid(&self) -> &AtomicGrid<H, W> {
+        &self.grid
+    }
+
+    #[inline]
+    pub fn cache(&self) -> &AtomicGrid<H, W> {
+        &self.cache
+    }
 
     #[inline]
     fn _update_grid(&self) {
@@ -58,16 +59,6 @@ impl<'a, const H: usize, const W: usize> AtomicGenerator<'a, H, W> {
     }
 
     #[inline]
-    pub fn grid(&self) -> &AtomicGrid<H, W> {
-        &self.grid
-    }
-
-    #[inline]
-    pub fn cache(&self) -> &AtomicGrid<H, W> {
-        &self.cache
-    }
-
-    #[inline]
     fn _update_cache(&mut self) {
         self.cache.copy_from(&self.grid);
     }
@@ -94,7 +85,6 @@ impl<'a, const H: usize, const W: usize> UnsafeCachingStrategy<H, W> for AtomicG
     }
 }
 
-
 // Implement Safe Generation for AtomicGenerator
 impl<'a, const H: usize, const W: usize> SafeGenerator<H, W> for AtomicGenerator<'a, H, W> {
     #[inline]
@@ -103,7 +93,6 @@ impl<'a, const H: usize, const W: usize> SafeGenerator<H, W> for AtomicGenerator
         self._update_grid();
     }
 }
-
 
 // Implement Unsafe Generation for AtomicGenerator
 impl<'a, const H: usize, const W: usize> UnsafeGenerator<H, W> for AtomicGenerator<'a, H, W> {

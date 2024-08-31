@@ -28,12 +28,12 @@ impl<const H: usize, const W: usize> SharedState<H, W> {
 
 unsafe impl<const H: usize, const W: usize> Sync for SharedState<H, W> {}
 
-pub struct Engine<const H: usize, const W: usize> {
+pub struct UnsafeCellGenerator<const H: usize, const W: usize> {
     state: Arc<SharedState<H, W>>,
     cache: Arc<SharedState<H, W>>,
 }
 
-impl<const H: usize, const W: usize> Engine<H, W> {
+impl<const H: usize, const W: usize> UnsafeCellGenerator<H, W> {
     pub fn new() -> Self {
         Self {
             state: Arc::new(SharedState::new()),
@@ -166,7 +166,7 @@ mod tests {
         const W: usize = 100;
         const COUNT: usize = 1000;
         let size = H * W;
-        let engine = Engine::<H, W>::new();
+        let engine = UnsafeCellGenerator::<H, W>::new();
         let (average_time, total_time) = measure_execution_time(
             || engine.cache.state().clone_from(&engine.state.state()),
             COUNT,
@@ -188,7 +188,7 @@ mod tests {
         const W: usize = 1000;
         const COUNT: usize = 100;
 
-        let engine = Engine::<H, W>::new();
+        let engine = UnsafeCellGenerator::<H, W>::new();
 
         let start = std::time::Instant::now();
         for _ in 0..COUNT {
@@ -213,7 +213,7 @@ mod tests {
         const H: usize = 5;
         const W: usize = 5;
 
-        let mut engine = Engine::<H, W>::new();
+        let mut engine = UnsafeCellGenerator::<H, W>::new();
 
         engine.randomize();
         let state = engine.cells().clone();

@@ -51,6 +51,13 @@ pub fn single_threaded() {
     }
 }
 
+pub fn bench_unsafe_cell_generation() {
+    const H: usize = 100;
+    const W: usize = 100;
+    let generator = UnsafeCellGenerator::<H, W>::new();
+    generator.generate();
+}
+
 fn criterion_benchmark(c: &mut Criterion) {
     // c.bench_function("single_threaded", |b| b.iter(|| single_threaded()));
     // c.bench_function("bench_atomic_grid_copy", |b| {
@@ -61,6 +68,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     // });
     c.bench_function("bench_atomic_generation", |b| {
         b.iter(|| bench_atomic_generation())
+    });
+    c.bench_function("bench_unsafe_cell_generation", |b| {
+        b.iter(|| bench_unsafe_cell_generation())
     });
 }
 
