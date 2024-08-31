@@ -4,7 +4,6 @@ use std::fmt;
 pub struct SimpleCell(u8);
 
 impl SimpleCell {
-    #[allow(dead_code)]
     pub fn new() -> SimpleCell {
         SimpleCell(0)
     }
@@ -73,9 +72,9 @@ impl fmt::Display for SimpleCell {
     }
 }
 
+#[cfg(test)]
 mod test_cell {
-    #[allow(unused_imports)]
-    use crate::cell::SimpleCell;
+    use super::SimpleCell;
 
     #[test]
     fn test_spawn() {
