@@ -1,5 +1,3 @@
-mod gol;
-
 use std::time::Duration;
 
 use gol::*;

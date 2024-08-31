@@ -56,7 +56,7 @@ impl<'a, const H: usize, const W: usize> Display<'a, H, W> {
 
 #[cfg(test)]
 mod tests {
-    use crate::gol::*;
+    use crate::*;
 
     use std::{borrow::BorrowMut, sync::Arc};
 

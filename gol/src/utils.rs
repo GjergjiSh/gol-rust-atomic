@@ -1,4 +1,4 @@
-use crate::gol::{cell::AtomicCell, grid::AtomicGrid};
+use crate::{cell::AtomicCell, grid::AtomicGrid};
 
 use rand::random;
 

@@ -125,7 +125,7 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
 }
 
 // Implement IGrid for Grid
-impl<const H: usize, const W: usize> IGrid<H, W> for AtomicGrid<H, W> {
+/* impl<const H: usize, const W: usize> IGrid<H, W> for AtomicGrid<H, W> {
     fn spawn(&self, x: isize, y: isize) {
         self.spawn(x, y);
     }
@@ -149,7 +149,7 @@ impl<const H: usize, const W: usize> IGrid<H, W> for AtomicGrid<H, W> {
            self.get(x, y)
        }
     */
-}
+} */
 
 // Implement Display for Grid
 impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {
@@ -191,7 +191,7 @@ impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {
 
 #[cfg(test)]
 mod tests {
-    use crate::gol::*;
+    use crate::*;
     use utils::*;
 
     use std::{sync::Arc, thread};
