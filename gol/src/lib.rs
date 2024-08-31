@@ -3,7 +3,6 @@ pub mod grid;
 pub mod generator;
 pub mod display;
 pub mod utils;
-pub mod launcher;
 
 pub use cell::*;
 pub use grid::*;

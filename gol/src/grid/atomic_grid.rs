@@ -21,6 +21,11 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
     }
 
     #[inline]
+    pub fn clone(&self) -> Vec<u8> {
+        self.cells.iter().map(|cell| cell.fetch()).collect()
+    }
+
+    #[inline]
     // Index the grid with 2D coordinates
     pub fn get(&self, x: isize, y: isize) -> &AtomicCell {
         let w = W as isize;
@@ -132,14 +137,10 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
 // Implement Display for Grid
 impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {
     fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Print the top border with column indices
-        print!("   "); // Space for row indices
-        println!();
-
         // Print the top border of the grid with column numbers
         print!("  +");
         for x in 0..W {
-            print!("-{}-+", x); // Col index
+            print!("--{}-+", x); // Col index
         }
         println!();
 
@@ -149,7 +150,9 @@ impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {
             for x in 0..W {
                 let index = y * W + x;
                 let cell = &self.cells[index];
+                let neighbors = cell.neighbors();
                 let symbol = if cell.alive() { '*' } else { ' ' };
+                let symbol = format!("{}{}", symbol, neighbors);
                 print!(" {} |", symbol);
             }
             println!(); // End of the row with a side border
@@ -157,7 +160,7 @@ impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {
             // Print the horizontal border between rows without column numbers
             print!("  +");
             for _ in 0..H {
-                print!("---+");
+                print!("----+");
             }
             println!();
         }
