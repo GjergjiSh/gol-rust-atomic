@@ -88,12 +88,12 @@ pub fn single_threaded() -> (Duration, Duration, f32) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     // c.bench_function("single_threaded", |b| b.iter(|| single_threaded()));
-    c.bench_function("bench_atomic_grid_copy", |b| {
-        b.iter(|| bench_atomic_grid_copy())
-    });
-    c.bench_function("bench_atomic_grid_unsafe_copy", |b| {
-        b.iter(|| bench_atomic_grid_unsafe_copy())
-    });
+    // c.bench_function("bench_atomic_grid_copy", |b| {
+    //     b.iter(|| bench_atomic_grid_copy())
+    // });
+    // c.bench_function("bench_atomic_grid_unsafe_copy", |b| {
+    //     b.iter(|| bench_atomic_grid_unsafe_copy())
+    // });
     c.bench_function("bench_atomic_generation", |b| {
         b.iter(|| bench_atomic_generation())
     });
