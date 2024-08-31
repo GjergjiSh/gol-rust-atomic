@@ -5,7 +5,7 @@ use gol::*;
 const H: usize = 100;
 const W: usize = 100;
 const GENERATIONS: usize = 1000;
-const DISPLAY: bool = false;
+const DISPLAY: bool = true;
 const DISPLAY_DELAY: u64 = 0;
 const BENCHMARKS: usize = 10;
 
@@ -28,13 +28,17 @@ pub fn single_threaded() -> (Duration, Duration, f32) {
     match display {
         Some(ref mut display) => {
             for _ in 0..GENERATIONS {
-                generator.generate();
+                unsafe {
+                    generator.u_generate();
+                }
                 display.update();
             }
         }
         None => {
             for _ in 0..GENERATIONS {
-                generator.generate();
+                unsafe {
+                    generator.u_generate();
+                }
             }
         }
     }

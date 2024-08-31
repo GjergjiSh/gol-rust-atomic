@@ -79,28 +79,8 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
             let cell = &self.cells[i];
             let other_cell = &other.cells[i];
 
-            cell.compare_and_exchange(other_cell);
+            cell.compare_and_swap(other_cell);
         }
-    }
-
-    #[inline]
-    // Unsafe copy the state of the grid to another grid
-    // SAFETY: The grids must have the same size. The function
-    // is only meant to be used in single-threaded contexts
-    pub unsafe fn unsafe_copy_from(&self, other: &Self) {
-        // Check if the grids have the same size
-        assert_eq!(
-            self.cells.len(),
-            other.cells.len(),
-            "Grids must have the same size"
-        );
-
-        // Perform the unsafe memory copy
-        std::ptr::copy_nonoverlapping(
-            other.cells.as_ptr(),
-            self.cells.as_ptr() as *mut AtomicCell,
-            self.cells.len(),
-        );
     }
 
     #[inline]
@@ -118,10 +98,32 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
         ]
     }
 
+    #[inline]
+    // Copy the state of the other grid to the grid
+    pub unsafe fn unsafe_copy_from(&self, other: &Self) {
+        // Check if the grids have the same size
+        assert_eq!(
+            self.cells.len(),
+            other.cells.len(),
+            "Grids must have the same size"
+        );
+
+        // Perform the unsafe memory copy
+        std::ptr::copy_nonoverlapping(
+            other.cells.as_ptr(),
+            self.cells.as_ptr() as *mut AtomicCell,
+            self.cells.len(),
+        );
+    }
+
+    #[inline]
+    // Return the size of the grid
     pub fn size(&self) -> usize {
         self.cells.len()
     }
 
+    #[inline]
+    // Iterate over the cells of the grid
     pub fn iter(&self) -> std::slice::Iter<AtomicCell> {
         self.cells.iter()
     }
@@ -166,7 +168,7 @@ impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use crate::*;
     use utils::*;
 
@@ -178,7 +180,10 @@ mod tests {
         pub const BLOCK_SHAPE_OFFSETS: [(isize, isize); 4] = [(0, 0), (1, 0), (0, 1), (1, 1)];
 
         // Set the cell at the given index to dead and 0 neighbors
-        pub fn set_0b0000_0000<const H: usize, const W: usize>(grid: &mut AtomicGrid<H, W>, idx: usize) {
+        pub fn set_0b0000_0000<const H: usize, const W: usize>(
+            grid: &mut AtomicGrid<H, W>,
+            idx: usize,
+        ) {
             let cell = &mut grid.cells[idx];
 
             while cell.neighbors() > 0 {
@@ -189,7 +194,10 @@ mod tests {
         }
 
         // Set the cell at the given index to alive and 8 neighbors
-        pub fn set_0b0001_0001<const H: usize, const W: usize>(grid: &mut AtomicGrid<H, W>, idx: usize) {
+        pub fn set_0b0001_0001<const H: usize, const W: usize>(
+            grid: &mut AtomicGrid<H, W>,
+            idx: usize,
+        ) {
             let cell = &mut grid.cells[idx];
 
             while cell.neighbors() < 8 {

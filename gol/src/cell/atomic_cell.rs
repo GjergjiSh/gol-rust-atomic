@@ -116,6 +116,15 @@ impl AtomicCell {
             self.store,
         );
     }
+
+    #[inline]
+    #[allow(deprecated)]
+    // Atomically swap the value of the cell with another cell
+    //TODO: This is deprecated and must be removed
+    pub fn compare_and_swap(&self, other: &AtomicCell) {
+        self.state
+            .compare_and_swap(self.state.load(self.fetch), other.fetch(), self.fetch);
+    }
 }
 
 // Implement Default for AtomicCell

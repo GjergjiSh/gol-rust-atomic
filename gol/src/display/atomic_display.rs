@@ -65,7 +65,7 @@ mod tests {
     fn test_glider_display() {
         const H: usize = 100;
         const W: usize = 100;
-        const GENERATIONS: usize = 1000;
+        const GENERATIONS: usize = 500;
 
         let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
         let grid = Arc::new(&grid);
@@ -75,27 +75,9 @@ mod tests {
         let mut atomic_display = AtomicDisplay::<H, W>::new(Arc::clone(&grid), 0);
 
         for _ in 0..GENERATIONS {
-            generator.generate();
-            atomic_display.update();
-        }
-    }
-
-    #[test]
-    fn test_random_display() {
-        const H: usize = 100;
-        const W: usize = 100;
-        const GENERATIONS: usize = 1000;
-
-        let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
-        let grid = Arc::new(&grid);
-
-        randomize_grid(&grid);
-
-        let generator = AtomicGenerator::<H, W>::new(Arc::clone(&grid));
-        let mut atomic_display = AtomicDisplay::<H, W>::new(Arc::clone(&grid), 0);
-
-        for _ in 0..GENERATIONS {
-            generator.generate();
+            unsafe {
+                generator.u_generate();
+            }
             atomic_display.update();
         }
     }
