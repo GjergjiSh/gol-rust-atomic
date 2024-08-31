@@ -16,12 +16,12 @@ pub fn single_threaded() -> (Duration, Duration, f32) {
 
     randomize_grid(&grid);
 
-    let generator = SingleThreadedGenerator::<H, W>::new(Arc::clone(&grid));
+    let generator = AtomicGenerator::<H, W>::new(Arc::clone(&grid));
     let mut display = None;
 
     if DISPLAY {
         let grid_ref = Arc::new(generator.grid());
-        display = Some(Display::<H, W>::new(grid_ref, DISPLAY_DELAY));
+        display = Some(AtomicDisplay::<H, W>::new(grid_ref, DISPLAY_DELAY));
     }
 
     let start = std::time::Instant::now();

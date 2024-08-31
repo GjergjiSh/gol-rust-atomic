@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
 
 const H: usize = 100;
 const W: usize = 100;
@@ -10,6 +10,34 @@ const DISPLAY_DELAY: u64 = 0;
 
 use gol::*;
 
+pub fn bench_atomic_grid_copy() {
+    let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
+    let other: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
+    for cell in grid.iter() {
+        cell.store(0b0001_0001);
+    }
+
+    grid.copy_from(&other);
+}
+
+pub fn bench_atomic_grid_unsafe_copy() {
+    let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
+    let other: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
+    for cell in grid.iter() {
+        cell.store(0b0001_0001);
+    }
+    unsafe { grid.unsafe_copy_from(&other) };
+}
+
+pub fn bench_atomic_generation() {
+    let grid = AtomicGrid::<H, W>::new();
+    let generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
+    for cell in grid.iter() {
+        cell.store(0b0001_0001);
+    }
+    generator.generate();
+}
+
 // Single threaded
 pub fn single_threaded() -> (Duration, Duration, f32) {
     let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
@@ -17,12 +45,12 @@ pub fn single_threaded() -> (Duration, Duration, f32) {
 
     randomize_grid(&grid);
 
-    let generator = SingleThreadedGenerator::<H, W>::new(Arc::clone(&grid));
+    let generator = AtomicGenerator::<H, W>::new(Arc::clone(&grid));
     let mut display = None;
 
     if DISPLAY {
         let grid_ref = Arc::new(generator.grid());
-        display = Some(Display::<H, W>::new(grid_ref, DISPLAY_DELAY));
+        display = Some(AtomicDisplay::<H, W>::new(grid_ref, DISPLAY_DELAY));
     }
 
     let start = std::time::Instant::now();
@@ -59,7 +87,16 @@ pub fn single_threaded() -> (Duration, Duration, f32) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("single_threaded", |b| b.iter(|| single_threaded()));
+    // c.bench_function("single_threaded", |b| b.iter(|| single_threaded()));
+    c.bench_function("bench_atomic_grid_copy", |b| {
+        b.iter(|| bench_atomic_grid_copy())
+    });
+    c.bench_function("bench_atomic_grid_unsafe_copy", |b| {
+        b.iter(|| bench_atomic_grid_unsafe_copy())
+    });
+    c.bench_function("bench_atomic_generation", |b| {
+        b.iter(|| bench_atomic_generation())
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);

@@ -6,14 +6,12 @@ pub mod grid;
 pub mod generator;
 pub mod display;
 pub mod utils;
-pub mod common;
 pub mod launcher;
 
-pub use cell::{AtomicCell, CellType};
-pub use grid::AtomicGrid;
-pub use generator::SingleThreadedGenerator;
-pub use display::Display;
+pub use cell::AtomicCell;
+pub use grid::{AtomicGrid, SimpleGrid};
+pub use generator::AtomicGenerator;
+pub use display::AtomicDisplay;
 pub use utils::randomize_grid;
-pub use common::{Generator, Cell};
 
 pub use std::sync::Arc;
