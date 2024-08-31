@@ -74,7 +74,8 @@ impl fmt::Display for SimpleCell {
 }
 
 mod test_cell {
-    use super::*;
+    #[allow(unused_imports)]
+    use crate::cell::SimpleCell;
 
     #[test]
     fn test_spawn() {
@@ -103,7 +104,7 @@ mod test_cell {
     }
 
     #[test]
-    fn test_increment_neighbours() {
+    fn test_increment_neighbors() {
         let mut cell = SimpleCell::new();
         cell.add_neighbor();
         assert_eq!(cell.neighbors(), 1);
@@ -122,7 +123,7 @@ mod test_cell {
     }
 
     #[test]
-    fn test_decrement_neighbours() {
+    fn test_decrement_neighbors() {
         let mut cell = SimpleCell::new();
         cell.add_neighbor();
         assert_eq!(cell.neighbors(), 1);

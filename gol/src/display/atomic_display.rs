@@ -57,7 +57,7 @@ impl<'a, const H: usize, const W: usize> AtomicDisplay<'a, H, W> {
 mod tests {
     use crate::*;
 
-    use std::{borrow::BorrowMut, sync::Arc};
+    use std::sync::Arc;
 
     pub const GLIDER_OFFSETS: [(isize, isize); 5] = [(2, 0), (2, 1), (2, 2), (1, 2), (0, 1)];
 
@@ -71,7 +71,7 @@ mod tests {
         let grid = Arc::new(&grid);
         grid.spawn_shape((0, 0), &GLIDER_OFFSETS);
 
-        let mut generator = AtomicGenerator::<H, W>::new(Arc::clone(&grid));
+        let generator = AtomicGenerator::<H, W>::new(Arc::clone(&grid));
         let mut atomic_display = AtomicDisplay::<H, W>::new(Arc::clone(&grid), 0);
 
         for _ in 0..GENERATIONS {

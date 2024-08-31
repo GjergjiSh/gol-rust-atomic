@@ -1,7 +1,4 @@
-use crate::{
-    cell::AtomicCell,
-    grid::AtomicGrid,
-};
+use crate::grid::AtomicGrid;
 
 use std::sync::Arc;
 
@@ -20,7 +17,7 @@ impl<'a, const H: usize, const W: usize> AtomicGenerator<'a, H, W> {
 
     pub fn generate(&self) {
         // unsafe {
-            // self.cache.unsafe_copy_from(&self.grid);
+        // self.cache.unsafe_copy_from(&self.grid);
         // }
 
         self.cache.copy_from(&self.grid);

@@ -1,5 +1,3 @@
-use std::cell::UnsafeCell;
-
 use crate::cell::AtomicCell;
 
 // 2D interface to a vector of cells
@@ -78,10 +76,10 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
     // TODO: Check for differing dimensions that add up the the same size
     pub fn copy_from(&self, other: &Self) {
         for i in 0..self.cells.len() {
-            let mut cell = &self.cells[i];
+            let cell = &self.cells[i];
             let other_cell = &other.cells[i];
 
-            cell.compare_and_swap(other_cell);
+            cell.compare_and_exchange(other_cell);
         }
     }
 
@@ -131,7 +129,7 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
 
 // Implement Display for Grid
 impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Print the top border with column indices
         print!("   "); // Space for row indices
         println!();
@@ -183,7 +181,7 @@ mod tests {
         pub fn set_0b0000_0000<const H: usize, const W: usize>(grid: &mut AtomicGrid<H, W>, idx: usize) {
             let cell = &mut grid.cells[idx];
 
-            while (cell.neighbors() > 0) {
+            while cell.neighbors() > 0 {
                 cell.remove_neighbor();
             }
 
@@ -194,7 +192,7 @@ mod tests {
         pub fn set_0b0001_0001<const H: usize, const W: usize>(grid: &mut AtomicGrid<H, W>, idx: usize) {
             let cell = &mut grid.cells[idx];
 
-            while (cell.neighbors() < 8) {
+            while cell.neighbors() < 8 {
                 cell.add_neighbor();
             }
 
@@ -223,7 +221,7 @@ mod tests {
     fn test_create_grid() {
         const H: usize = 1000;
         const W: usize = 1000;
-        let mut grid = AtomicGrid::<H, W>::new();
+        let grid = AtomicGrid::<H, W>::new();
         assert_eq!(grid.cells.len(), H * W);
     }
 
@@ -334,14 +332,7 @@ mod tests {
 
     #[test]
     fn test_spawn_block_shape() {
-        let mut grid = AtomicGrid::<4, 4>::new();
-
-        let shapes: [[(isize, isize); 4]; 4] = [
-            [(0, 0), (1, 0), (0, 1), (1, 1)], // Top left
-            [(2, 0), (3, 0), (2, 1), (3, 1)], // Top right
-            [(0, 2), (1, 2), (0, 3), (1, 3)], // Bottom left
-            [(2, 2), (3, 2), (2, 3), (3, 3)], // Bottom right
-        ];
+        let grid = AtomicGrid::<4, 4>::new();
 
         /* Spawn a block shape at the top left corner
            [1][1][0][0]
@@ -411,7 +402,7 @@ mod tests {
 
     #[test]
     fn test_copy_from() {
-        let mut grid = AtomicGrid::<4, 4>::new();
+        let grid = AtomicGrid::<4, 4>::new();
         let mut other = AtomicGrid::<4, 4>::new();
 
         // Set the state of the other grid to alive and 8 neighbors
@@ -449,8 +440,8 @@ mod tests {
     fn test_raw_unsafe_copy() {
         use std::cell::UnsafeCell;
 
-        let mut grid = AtomicGrid::<4, 4>::new();
-        let mut other = AtomicGrid::<4, 4>::new();
+        let grid = AtomicGrid::<4, 4>::new();
+        let other = AtomicGrid::<4, 4>::new();
 
         let grid = UnsafeCell::new(grid);
         let other = UnsafeCell::new(other);
@@ -485,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_unsafe_copy() {
-        let mut grid = AtomicGrid::<4, 4>::new();
+        let grid = AtomicGrid::<4, 4>::new();
         let mut other = AtomicGrid::<4, 4>::new();
 
         // Set the state of the other grid to alive and 8 neighbors

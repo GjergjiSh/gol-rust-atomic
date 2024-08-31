@@ -2,7 +2,7 @@ use std::{
     fmt,
     sync::atomic::{
         AtomicU8,
-        Ordering::{self, AcqRel, Acquire, Release, SeqCst},
+        Ordering::{self, AcqRel, Acquire, Release},
     },
 };
 
@@ -107,16 +107,9 @@ impl AtomicCell {
     }
 
     #[inline]
-    // Atomically swap the value of the cell with another cell
-    pub fn compare_and_swap(&self, other: &AtomicCell) {
-        self.state
-            .compare_and_swap(self.state.load(self.fetch), other.fetch(), self.fetch);
-    }
-
-    #[inline]
     // Atomically exchange the value of the cell with another cell
     pub fn compare_and_exchange(&self, other: &AtomicCell) {
-        self.state.compare_exchange(
+        let _ = self.state.compare_exchange(
             self.state.load(self.fetch),
             other.fetch(),
             self.fetch,
@@ -167,7 +160,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_spawn_kill() {
-        let mut cell = AtomicCell::default();
+        let cell = AtomicCell::default();
         cell.spawn();
         assert_eq!(cell.fetch(), 1);
         assert!(cell.alive());
@@ -181,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_neighbors() {
-        let mut cell = AtomicCell::default();
+        let cell = AtomicCell::default();
         assert_eq!(cell.neighbors(), 0);
         assert!(!cell.alive());
         assert!(cell.fetch() == 0b0000_0000);
@@ -189,7 +182,7 @@ mod tests {
         // Spawn the cell to test if incrementing affects the first bit
         cell.spawn();
 
-        let mut expected_values: [u8; 8] = [
+        let expected_values: [u8; 8] = [
             0b000_0001_1, // Alive and 1 neighbor
             0b000_0010_1, // Alive and 2 neighbors
             0b000_0011_1, // Alive and 3 neighbors
@@ -217,7 +210,7 @@ mod tests {
         // Kill the cell to test if decrementing affects the first bit
         cell.kill();
 
-        let mut expected_values: [u8; 8] = [
+        let expected_values: [u8; 8] = [
             0b000_0111_0, // Alive and 7 neighbors
             0b000_0110_0, // Alive and 6 neighbors
             0b000_0101_0, // Alive and 5 neighbors
@@ -237,7 +230,6 @@ mod tests {
         for idx in 0..8 {
             cell.remove_neighbor();
             let expected = expected_values[idx];
-            let current = cell.fetch();
             assert_eq!(cell.fetch(), expected);
             assert_eq!(cell.neighbors(), (7 - idx) as u8);
             assert!(!cell.alive());

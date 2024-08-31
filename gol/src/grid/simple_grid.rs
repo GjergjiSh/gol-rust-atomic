@@ -1,7 +1,6 @@
 use std::{
     alloc::{alloc, Layout},
     fmt,
-    ops::{Index, IndexMut},
 };
 
 use crate::cell::SimpleCell;

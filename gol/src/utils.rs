@@ -1,4 +1,4 @@
-use crate::{cell::AtomicCell, grid::AtomicGrid};
+use crate::grid::AtomicGrid;
 
 use rand::random;
 
