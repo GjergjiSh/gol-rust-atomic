@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use std::time::Duration;
 use std::sync::Arc;
 
@@ -8,9 +8,12 @@ const GENERATIONS: usize = 1000;
 const DISPLAY: bool = false;
 const DISPLAY_DELAY: u64 = 0;
 
+use gol::*;
+
+// Single threaded
 pub fn single_threaded() -> (Duration, Duration, f32) {
     let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
-    let grid = Arc::new(grid);
+    let grid = Arc::new(&grid);
 
     randomize_grid(&grid);
 
