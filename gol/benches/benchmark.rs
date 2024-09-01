@@ -8,6 +8,16 @@ const SINGLE_THREADED_GENERATIONS: usize = 1000;
 
 use gol::*;
 
+/* Creating Benchmarks */
+
+pub fn create_atomic_generator() {
+    AtomicGrid::<H, W>::new();
+}
+
+pub fn create_ref_cell_generator() {
+    UnsafeCellGenerator::<H, W>::new();
+}
+
 /* Caching Benchmarks */
 // atomic_generator_safe_caching time:   [72.981 µs 73.065 µs 73.161 µs]
 // atomic_generator_unsafe_caching time:   [20.142 µs 20.217 µs 20.304 µs]
@@ -79,6 +89,12 @@ pub fn single_threaded() {
 
 fn criterion_benchmark(c: &mut Criterion) {
     // c.bench_function("single_threaded", |b| b.iter(|| single_threaded()));
+    c.bench_function("create_atomic_generator", |b| {
+        b.iter(|| create_atomic_generator())
+    });
+    c.bench_function("create_ref_cell_generator", |b| {
+        b.iter(|| create_ref_cell_generator())
+    });
     c.bench_function("atomic_generator_safe_caching", |b| {
         b.iter(|| atomic_generator_safe_caching())
     });
