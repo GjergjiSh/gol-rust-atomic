@@ -9,27 +9,26 @@ const SINGLE_THREADED_GENERATIONS: usize = 1000;
 use gol::*;
 
 /* Caching Benchmarks */
+// atomic_generator_safe_caching time:   [72.981 µs 73.065 µs 73.161 µs]
+// atomic_generator_unsafe_caching time:   [20.142 µs 20.217 µs 20.304 µs]
+// ref_cell_generator_caching time:   [571.54 ns 574.05 ns 576.89 ns]
 
-/*  atomic_grid_safe_copy   time:   [75.358 µs 75.830 µs 76.349 µs]
-    atomic_grid_unsafe_copy time:   [20.371 µs 20.445 µs 20.525 µs]
-    unsafe_cell_copy        time:   [375.47 ns 377.40 ns 379.91 ns]
-*/
-
-pub fn atomic_grid_safe_copy() {
-    let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
-    let other: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
-    grid.copy_from(&other);
+pub fn atomic_generator_safe_caching() {
+    let grid = AtomicGrid::<H, W>::new();
+    let mut atomic_generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
+    atomic_generator.update_cache();
 }
 
-pub fn atomic_grid_unsafe_copy() {
-    let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
-    let other: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
-    unsafe { grid.unsafe_copy_from(&other) };
+pub fn atomic_generator_unsafe_caching() {
+    let grid = AtomicGrid::<H, W>::new();
+    let atomic_generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
+    unsafe { atomic_generator.u_update_cache() };
 }
 
-pub fn unsafe_cell_copy() {
-    let state = Arc::new(SharedState::<H, W>::new());
-    let mut cache = Arc::new(SharedState::<H, W>::new());
+pub fn ref_cell_generator_caching() {
+    let generator = UnsafeCellGenerator::<H, W>::new();
+    let state = &mut *generator.grid().get_mut();
+    let cache = &mut *generator.cache().get_mut();
     cache.clone_from(&state);
 }
 
@@ -80,14 +79,14 @@ pub fn single_threaded() {
 
 fn criterion_benchmark(c: &mut Criterion) {
     // c.bench_function("single_threaded", |b| b.iter(|| single_threaded()));
-    c.bench_function("atomic_grid_safe_copy", |b| {
-        b.iter(|| atomic_grid_safe_copy())
+    c.bench_function("atomic_generator_safe_caching", |b| {
+        b.iter(|| atomic_generator_safe_caching())
     });
-    c.bench_function("atomic_grid_unsafe_copy", |b| {
-        b.iter(|| atomic_grid_unsafe_copy())
+    c.bench_function("atomic_generator_unsafe_caching", |b| {
+        b.iter(|| atomic_generator_unsafe_caching())
     });
-    c.bench_function("unsafe_cell_copy", |b| {
-        b.iter(|| unsafe_cell_copy())
+    c.bench_function("ref_cell_generator_caching", |b| {
+        b.iter(|| ref_cell_generator_caching())
     });
     // c.bench_function("unsafe_atomic_generation", |b| {
     //     b.iter(|| unsafe_atomic_generation())

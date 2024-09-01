@@ -9,19 +9,11 @@ impl<const H: usize, const W: usize> SharedState<H, W> {
         Self(UnsafeCell::new(SimpleGrid::new()))
     }
 
-    pub fn state(&self) -> &SimpleGrid<H, W> {
+    pub fn get(&self) -> &SimpleGrid<H, W> {
         unsafe { &*self.0.get() }
     }
 
-    pub fn mut_state(&self) -> &mut SimpleGrid<H, W> {
-        unsafe { &mut *self.0.get() }
-    }
-
-    pub fn cache(&self) -> &SimpleGrid<H, W> {
-        unsafe { &*self.0.get() }
-    }
-
-    pub fn mut_cache(&self) -> &mut SimpleGrid<H, W> {
+    pub fn get_mut(&self) -> &mut SimpleGrid<H, W> {
         unsafe { &mut *self.0.get() }
     }
 }
@@ -29,14 +21,14 @@ impl<const H: usize, const W: usize> SharedState<H, W> {
 unsafe impl<const H: usize, const W: usize> Sync for SharedState<H, W> {}
 
 pub struct UnsafeCellGenerator<const H: usize, const W: usize> {
-    state: Arc<SharedState<H, W>>,
+    grid: Arc<SharedState<H, W>>,
     cache: Arc<SharedState<H, W>>,
 }
 
 impl<const H: usize, const W: usize> UnsafeCellGenerator<H, W> {
     pub fn new() -> Self {
         Self {
-            state: Arc::new(SharedState::new()),
+            grid: Arc::new(SharedState::new()),
             cache: Arc::new(SharedState::new()),
         }
     }
@@ -45,15 +37,15 @@ impl<const H: usize, const W: usize> UnsafeCellGenerator<H, W> {
         for x in 0..H {
             for y in 0..W {
                 if rand::random() {
-                    self.state.mut_state().spawn(x as isize, y as isize);
+                    self.grid.get_mut().spawn(x as isize, y as isize);
                 }
             }
         }
     }
 
     pub fn generate(&self) {
-        let state = &mut *self.state.mut_state();
-        let cache = &mut *self.cache.mut_cache();
+        let state = &mut *self.grid.get_mut();
+        let cache = &mut *self.cache.get_mut();
 
         cache.clone_from(&state);
 
@@ -84,8 +76,8 @@ impl<const H: usize, const W: usize> UnsafeCellGenerator<H, W> {
     }
 
     pub fn generate_slice(&self, x0: usize, xn: usize, y0: usize, yn: usize) {
-        let state = &mut *self.state.mut_state();
-        let cache = &mut *self.cache.mut_state();
+        let state = &mut *self.grid.get_mut();
+        let cache = &mut *self.cache.get_mut();
 
         for x in x0..xn {
             for y in y0..yn {
@@ -114,27 +106,31 @@ impl<const H: usize, const W: usize> UnsafeCellGenerator<H, W> {
     }
 
     pub fn mut_state_cache_pair(&self) -> (&mut SimpleGrid<H, W>, &mut SimpleGrid<H, W>) {
-        let state = &mut *self.state.mut_state();
-        let cache = &mut *self.cache.mut_cache();
+        let state = &mut *self.grid.get_mut();
+        let cache = &mut *self.cache.get_mut();
         (state, cache)
     }
 
     pub fn state_cache_pair(&self) -> (&SimpleGrid<H, W>, &SimpleGrid<H, W>) {
-        let state = &*self.state.state();
-        let cache = &*self.cache.cache();
+        let state = &*self.grid.get();
+        let cache = &*self.cache.get();
         (state, cache)
     }
 
     pub fn mut_cells(&mut self) -> &mut SimpleGrid<H, W> {
-        &mut *self.state.mut_state()
+        &mut *self.grid.get_mut()
     }
 
-    pub fn cells(&self) -> &SimpleGrid<H, W> {
-        &*self.state.state()
+    pub fn grid(&self) -> &SharedState<H, W> {
+        &self.grid
+    }
+
+    pub fn cache(&self) -> &SharedState<H, W> {
+        &self.cache
     }
 
     pub fn mut_cells_ref(&self) -> Arc<SharedState<H, W>> {
-        Arc::clone(&self.state)
+        Arc::clone(&self.grid)
     }
 }
 
@@ -168,7 +164,7 @@ mod tests {
         let size = H * W;
         let engine = UnsafeCellGenerator::<H, W>::new();
         let (average_time, total_time) = measure_execution_time(
-            || engine.cache.state().clone_from(&engine.state.state()),
+            || engine.cache.get().clone_from(&engine.grid.get()),
             COUNT,
         );
 
@@ -216,13 +212,36 @@ mod tests {
         let mut engine = UnsafeCellGenerator::<H, W>::new();
 
         engine.randomize();
-        let state = engine.cells().clone();
+        let state = engine.grid().get().clone();
 
         for _ in 0..10 {
             engine.generate();
         }
 
-        let state2 = engine.cells().clone();
+        let state2 = engine.grid().get().clone();
         assert_ne!(state, state2);
     }
+
+    #[test]
+    pub fn test_cache_update() {
+        const H: usize = 5;
+        const W: usize = 5;
+
+        let generator = UnsafeCellGenerator::<H, W>::new();
+        let state = &mut *generator.grid().get_mut();
+        let cache = &mut *generator.cache().get_mut();
+
+        for x in 0..H {
+            for y in 0..W {
+                state.spawn(x as isize, y as isize);
+            }
+        }
+
+        assert_ne!(generator.grid.get(), generator.cache.get());
+
+        cache.clone_from(&state);
+
+        assert_eq!(generator.grid.get(), generator.cache.get());
+    }
+
 }

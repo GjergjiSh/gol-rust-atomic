@@ -20,13 +20,6 @@ impl<'a, const H: usize, const W: usize> AtomicGenerator<'a, H, W> {
         }
     }
 
-    // pub fn from(grid: &AtomicGrid<H, W>) -> Self {
-    //     Self {
-    //         grid: Arc::new(grid),
-    //         cache: AtomicGrid::new(),
-    //     }
-    // }
-
     #[inline]
     pub fn grid(&self) -> &AtomicGrid<H, W> {
         &self.grid
