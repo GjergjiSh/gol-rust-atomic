@@ -1,5 +1,8 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicU8, Ordering},
+    Arc,
+};
 
 // Configuration
 const H: usize = 100;
@@ -19,9 +22,11 @@ pub fn create_ref_cell_generator() {
 }
 
 /* Caching Benchmarks */
-// atomic_generator_safe_caching time:   [72.981 µs 73.065 µs 73.161 µs]
-// atomic_generator_unsafe_caching time:   [20.142 µs 20.217 µs 20.304 µs]
-// ref_cell_generator_caching time:   [571.54 ns 574.05 ns 576.89 ns]
+/*
+atomic_generator_safe_caching time:   [72.981 µs 73.065 µs 73.161 µs]
+atomic_generator_unsafe_caching time:   [20.142 µs 20.217 µs 20.304 µs]
+ref_cell_generator_caching time:   [571.54 ns 574.05 ns 576.89 ns]
+*/
 
 pub fn atomic_generator_safe_caching() {
     let grid = AtomicGrid::<H, W>::new();
@@ -72,7 +77,88 @@ pub fn unsafe_simple_cell_generation() {
     generator.generate();
 }
 
-// Single threaded
+/* Simple Copy Benchmarks */
+const SIZE: usize = 1024 * 100000;
+
+pub fn simple_copy_method_one() {
+    let cells: Vec<u8> = vec![1; SIZE];
+    let _cache: Vec<u8> = cells.clone();
+}
+
+pub fn simple_copy_method_two() {
+    let cells: Vec<u8> = vec![1; SIZE];
+    let mut cache: Vec<u8> = Vec::<u8>::with_capacity(SIZE);
+
+    unsafe {
+        // Perform the unsafe memory copy
+        std::ptr::copy_nonoverlapping(cells.as_ptr(), cache.as_mut_ptr(), cells.len());
+    }
+}
+
+pub fn simple_copy_method_three() {
+    let cells: Vec<u8> = vec![1; SIZE];
+    let mut cache: Vec<u8> = Vec::<u8>::with_capacity(SIZE);
+
+    for (cell, cache_cell) in cells.iter().zip(cache.iter_mut()) {
+        *cache_cell = *cell;
+    }
+}
+
+pub fn simple_copy_method_four() {
+    let cells: Vec<u8> = vec![1; SIZE];
+    let mut cache: Vec<u8> = Vec::<u8>::with_capacity(SIZE);
+
+    for cell in cells.iter() {
+        let _ = cache.push(*cell);
+    }
+}
+
+/* Atomic Copy Benchmarks */
+
+pub fn atomic_copy_method_one() {
+    let cells: Vec<AtomicU8> = (0..SIZE).map(|_| AtomicU8::new(1)).collect();
+    let mut cache: Vec<AtomicU8> = Vec::<AtomicU8>::with_capacity(SIZE);
+
+    for (cell, cache_cell) in cells.iter().zip(cache.iter_mut()) {
+        let _ = cache_cell.compare_exchange(
+            cache_cell.load(Ordering::Relaxed),
+            cell.load(Ordering::Relaxed),
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        );
+    }
+}
+
+pub fn atomic_method_two() {
+    let cells: Vec<AtomicU8> = (0..SIZE).map(|_| AtomicU8::new(1)).collect();
+    let mut cache: Vec<AtomicU8> = Vec::<AtomicU8>::with_capacity(SIZE);
+
+    unsafe {
+        // Perform the unsafe memory copy
+        std::ptr::copy_nonoverlapping(cells.as_ptr(), cache.as_mut_ptr(), cells.len());
+    }
+}
+
+pub fn atomic_method_three() {
+    let cells: Vec<AtomicU8> = (0..SIZE).map(|_| AtomicU8::new(1)).collect();
+    let mut cache: Vec<AtomicU8> = Vec::<AtomicU8>::with_capacity(SIZE);
+
+    for cell in cells.iter() {
+        let _ = cache.push(cell.load(Ordering::Relaxed).into());
+    }
+}
+
+pub fn atomic_method_four() {
+    let cells: Vec<AtomicU8> = (0..SIZE).map(|_| AtomicU8::new(1)).collect();
+    let mut cache: Vec<AtomicU8> = Vec::<AtomicU8>::with_capacity(SIZE);
+
+    for cell in cells.iter() {
+        cache.push(cell.load(Ordering::SeqCst).into());
+    }
+}
+
+/* Atomic Single Threaded Generation */
+
 pub fn single_threaded() {
     let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
     let grid = Arc::new(&grid);
@@ -87,23 +173,43 @@ pub fn single_threaded() {
     }
 }
 
+/* Main */
+
 fn criterion_benchmark(c: &mut Criterion) {
+    c.bench_function("simple_copy_method_one", |b| {
+        b.iter(|| simple_copy_method_one())
+    });
+    c.bench_function("simple_copy_method_two", |b| {
+        b.iter(|| simple_copy_method_two())
+    });
+    c.bench_function("simple_copy_method_three", |b| {
+        b.iter(|| simple_copy_method_three())
+    });
+    c.bench_function("simple_copy_method_four", |b| {
+        b.iter(|| simple_copy_method_four())
+    });
+    c.bench_function("atomic_copy_method_one", |b| {
+        b.iter(|| atomic_copy_method_one())
+    });
+    c.bench_function("atomic_method_two", |b| b.iter(|| atomic_method_two()));
+    c.bench_function("atomic_method_three", |b| b.iter(|| atomic_method_three()));
+    c.bench_function("atomic_method_four", |b| b.iter(|| atomic_method_four()));
     // c.bench_function("single_threaded", |b| b.iter(|| single_threaded()));
-    c.bench_function("create_atomic_generator", |b| {
-        b.iter(|| create_atomic_generator())
-    });
-    c.bench_function("create_ref_cell_generator", |b| {
-        b.iter(|| create_ref_cell_generator())
-    });
-    c.bench_function("atomic_generator_safe_caching", |b| {
-        b.iter(|| atomic_generator_safe_caching())
-    });
-    c.bench_function("atomic_generator_unsafe_caching", |b| {
-        b.iter(|| atomic_generator_unsafe_caching())
-    });
-    c.bench_function("ref_cell_generator_caching", |b| {
-        b.iter(|| ref_cell_generator_caching())
-    });
+    // c.bench_function("create_atomic_generator", |b| {
+    //     b.iter(|| create_atomic_generator())
+    // });
+    // c.bench_function("create_ref_cell_generator", |b| {
+    //     b.iter(|| create_ref_cell_generator())
+    // });
+    // c.bench_function("atomic_generator_safe_caching", |b| {
+    //     b.iter(|| atomic_generator_safe_caching())
+    // });
+    // c.bench_function("atomic_generator_unsafe_caching", |b| {
+    //     b.iter(|| atomic_generator_unsafe_caching())
+    // });
+    // c.bench_function("ref_cell_generator_caching", |b| {
+    //     b.iter(|| ref_cell_generator_caching())
+    // });
     // c.bench_function("unsafe_atomic_generation", |b| {
     //     b.iter(|| unsafe_atomic_generation())
     // });
