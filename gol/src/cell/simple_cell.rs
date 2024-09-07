@@ -79,6 +79,8 @@ mod test_cell {
     #[test]
     fn test_spawn() {
         let mut cell = SimpleCell::new();
+        assert!(cell.alive() == false);
+        assert_eq!(cell, 0b00000000);
         cell.add_neighbor();
         assert_eq!(cell, 0b00000010);
         assert_eq!(cell.alive(), false);

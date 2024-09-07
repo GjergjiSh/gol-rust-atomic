@@ -10,6 +10,15 @@ impl<const H: usize, const W: usize> SimpleGridWithVec<H, W> {
     pub fn new() -> SimpleGridWithVec<H, W> {
         let cells = vec![SimpleCell::new(); H * W];
         SimpleGridWithVec { cells }
+
+        //TODO: +3388881% performance hit
+        /* let mut cells = Vec::with_capacity(H * W);
+
+        for _ in 0..H * W {
+            cells.push(SimpleCell::new());
+        }
+
+        SimpleGridWithVec { cells } */
     }
 
     #[inline]

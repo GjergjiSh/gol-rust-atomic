@@ -2,59 +2,52 @@ use std::{
     fmt,
     sync::atomic::{
         AtomicU8,
-        Ordering::{self, AcqRel, Acquire, Release},
+        Ordering,
     },
 };
 
+// Orderings here are used to specify the memory ordering of atomic operations
+// Storing them as members of an atomic cell is less efficient that constants
+const FETCH: Ordering = Ordering::Acquire;
+const STORE: Ordering = Ordering::Release;
+
 // Wrapper around an AtomicU8 to represent a cell in the grid
-pub struct AtomicCell {
-    state: AtomicU8,
-    fetch: Ordering,
-    store: Ordering,
-}
+pub struct AtomicCell(AtomicU8);
 
 // Implement Cell: All functions are atomic operations
 impl AtomicCell {
     // Creates a new cell with the specified load and store orderings
-    pub fn new(fetch: Ordering, store: Ordering) -> Self {
-        assert_ne!(fetch, AcqRel, "Fetch ordering for AtomicCell cannot be AcqRel");
-        assert_ne!(store, AcqRel, "Store ordering for AtomicCell cannot be AcqRel");
-        assert_ne!(fetch, Release, "Fetch ordering for AtomicCell cannot be Release");
-        assert_ne!(store, Acquire, "Store ordering for AtomicCell cannot be Acquire");
-        AtomicCell {
-            state: AtomicU8::new(0),
-            fetch,
-            store,
-        }
+    pub fn new() -> Self {
+        AtomicCell(AtomicU8::new(0))
     }
 
     #[inline]
     // Bitwise atomic operation to set the first bit to 1
     pub fn spawn(&self) {
-        self.state
-            .fetch_update(self.store, self.fetch, |old| Some(old | 1))
+        self.0
+            .fetch_update(STORE, FETCH, |old| Some(old | 1))
             .unwrap();
     }
 
     #[inline]
     // Bitwise atomic operation to set the first bit to 0
     pub fn kill(&self) {
-        self.state
-            .fetch_update(self.store, self.fetch, |old| Some(old & !1))
+        self.0
+            .fetch_update(STORE, FETCH, |old| Some(old & !1))
             .unwrap();
     }
 
     #[inline]
     // Bitwise atomic operation to get the number of neighbors
     pub fn neighbors(&self) -> u8 {
-        (self.state.load(self.fetch) >> 1) & 0b0000_1111
+        (self.0.load(FETCH) >> 1) & 0b0000_1111
     }
 
     #[inline]
     // Bitwise atomic operation to increment the number of neighbors
     pub fn add_neighbor(&self) {
-        self.state
-            .fetch_update(self.store, self.fetch, |mut old| {
+        self.0
+            .fetch_update(STORE, FETCH, |mut old| {
                 let count = (old >> 1) & 0b1111;
                 if count + 1 <= 8 {
                     old = (old & 0b0000_0001) | ((count + 1) << 1);
@@ -72,8 +65,8 @@ impl AtomicCell {
     #[inline]
     // Bitwise atomic operation to decrement the number of neighbors
     pub fn remove_neighbor(&self) {
-        self.state
-            .fetch_update(self.store, self.fetch, |mut old| {
+        self.0
+            .fetch_update(STORE, FETCH, |mut old| {
                 let count = (old >> 1) & 0b1111;
                 if count > 0 {
                     old = (old & 0b0000_0001) | ((count - 1) << 1);
@@ -91,30 +84,27 @@ impl AtomicCell {
     #[inline]
     // Bitwise atomic operation, returns true if the first bit is 1
     pub fn alive(&self) -> bool {
-        self.state.load(self.fetch) & 1 == 1
+        self.0.load(FETCH) & 1 == 1
     }
 
     #[inline]
     // Atomically loads the value of the cell with the specified ordering
     pub fn fetch(&self) -> u8 {
-        self.state.load(self.fetch)
+        self.0.load(FETCH)
     }
 
     #[inline]
     // Atomically stores the value of the cell with the specified ordering
     pub fn store(&self, value: u8) {
-        self.state.store(value, self.store);
+        self.0.store(value, STORE);
     }
 
     #[inline]
     // Atomically exchange the value of the cell with another cell
     pub fn compare_and_exchange(&self, other: &AtomicCell) {
-        let _ = self.state.compare_exchange(
-            self.state.load(self.fetch),
-            other.fetch(),
-            self.fetch,
-            self.store,
-        );
+        let _ = self
+            .0
+            .compare_exchange(self.0.load(FETCH), other.fetch(), FETCH, STORE);
     }
 
     #[inline]
@@ -122,33 +112,29 @@ impl AtomicCell {
     // Atomically swap the value of the cell with another cell
     //TODO: This is deprecated and must be removed
     pub fn compare_and_swap(&self, other: &AtomicCell) {
-        self.state
-            .compare_and_swap(self.state.load(self.fetch), other.fetch(), self.fetch);
+        self.0
+            .compare_and_swap(self.0.load(FETCH), other.fetch(), FETCH);
     }
 }
 
 // Implement Default for AtomicCell
 impl Default for AtomicCell {
     fn default() -> Self {
-        AtomicCell::new(Ordering::Acquire, Ordering::Release)
+        AtomicCell::new()
     }
 }
 
 // Implement PartialEq<u8> for AtomicCell
 impl PartialEq<u8> for AtomicCell {
     fn eq(&self, other: &u8) -> bool {
-        self.state.load(self.fetch) == *other
+        self.0.load(FETCH) == *other
     }
 }
 
 // TODO: Theory Implement Clone for AtomicCell
 impl Clone for AtomicCell {
     fn clone(&self) -> Self {
-        AtomicCell {
-            state: AtomicU8::new(self.state.load(self.fetch)),
-            fetch: self.fetch,
-            store: self.store,
-        }
+        AtomicCell(AtomicU8::new(self.0.load(FETCH)))
     }
 }
 

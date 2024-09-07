@@ -4,21 +4,29 @@ use std::sync::{
     Arc,
 };
 
+pub mod misc;
+
+use gol::*;
+use misc::*;
+
 // Configuration
 const H: usize = 100;
 const W: usize = 100;
+const SIZE: usize = 1024 * H * W;
 const SINGLE_THREADED_GENERATIONS: usize = 1000;
-
-use gol::*;
 
 /* Creating Benchmarks */
 
-pub fn create_atomic_generator() {
+pub fn create_atomic_grid() {
     AtomicGrid::<H, W>::new();
 }
 
-pub fn create_ref_cell_generator() {
-    UnsafeCellGenerator::<H, W>::new();
+pub fn create_simple_grid() {
+    SimpleGrid::<H, W>::new();
+}
+
+pub fn create_simple_grid_with_vec() {
+    SimpleGridWithVec::<H, W>::new();
 }
 
 /* Caching Benchmarks */
@@ -77,42 +85,6 @@ pub fn unsafe_simple_cell_generation() {
     generator.generate();
 }
 
-/* Simple Copy Benchmarks */
-const SIZE: usize = 1024 * 100000;
-
-pub fn simple_copy_method_one() {
-    let cells: Vec<u8> = vec![1; SIZE];
-    let _cache: Vec<u8> = cells.clone();
-}
-
-pub fn simple_copy_method_two() {
-    let cells: Vec<u8> = vec![1; SIZE];
-    let mut cache: Vec<u8> = Vec::<u8>::with_capacity(SIZE);
-
-    unsafe {
-        // Perform the unsafe memory copy
-        std::ptr::copy_nonoverlapping(cells.as_ptr(), cache.as_mut_ptr(), cells.len());
-    }
-}
-
-pub fn simple_copy_method_three() {
-    let cells: Vec<u8> = vec![1; SIZE];
-    let mut cache: Vec<u8> = Vec::<u8>::with_capacity(SIZE);
-
-    for (cell, cache_cell) in cells.iter().zip(cache.iter_mut()) {
-        *cache_cell = *cell;
-    }
-}
-
-pub fn simple_copy_method_four() {
-    let cells: Vec<u8> = vec![1; SIZE];
-    let mut cache: Vec<u8> = Vec::<u8>::with_capacity(SIZE);
-
-    for cell in cells.iter() {
-        let _ = cache.push(*cell);
-    }
-}
-
 /* Atomic Copy Benchmarks */
 
 pub fn atomic_copy_method_one() {
@@ -129,7 +101,7 @@ pub fn atomic_copy_method_one() {
     }
 }
 
-pub fn atomic_method_two() {
+pub fn atomic_copy_method_two() {
     let cells: Vec<AtomicU8> = (0..SIZE).map(|_| AtomicU8::new(1)).collect();
     let mut cache: Vec<AtomicU8> = Vec::<AtomicU8>::with_capacity(SIZE);
 
@@ -139,7 +111,7 @@ pub fn atomic_method_two() {
     }
 }
 
-pub fn atomic_method_three() {
+pub fn atomic_copy_method_three() {
     let cells: Vec<AtomicU8> = (0..SIZE).map(|_| AtomicU8::new(1)).collect();
     let mut cache: Vec<AtomicU8> = Vec::<AtomicU8>::with_capacity(SIZE);
 
@@ -148,7 +120,7 @@ pub fn atomic_method_three() {
     }
 }
 
-pub fn atomic_method_four() {
+pub fn atomic_copy_method_four() {
     let cells: Vec<AtomicU8> = (0..SIZE).map(|_| AtomicU8::new(1)).collect();
     let mut cache: Vec<AtomicU8> = Vec::<AtomicU8>::with_capacity(SIZE);
 
@@ -173,9 +145,31 @@ pub fn single_threaded() {
     }
 }
 
-/* Main */
+/* Register Benchmarks */
 
 fn criterion_benchmark(c: &mut Criterion) {
+    // Misc benchmarks
+    c.bench_function("u8_vector_creation_method_one", |b| {
+        b.iter(|| u8_vector_creation_method_one())
+    });
+    c.bench_function("u8_vector_creation_method_two", |b| {
+        b.iter(|| u8_vector_creation_method_two())
+    });
+    c.bench_function("atomic_u8_vector_creation_method_one", |b| {
+        b.iter(|| atomic_u8_vector_creation_method_one())
+    });
+    c.bench_function("atomic_u8_vector_creation_method_two", |b| {
+        b.iter(|| atomic_u8_vector_creation_method_two())
+    });
+
+    // Create grid benchmarks
+    c.bench_function("create_atomic_grid", |b| b.iter(|| create_atomic_grid()));
+    c.bench_function("create_simple_grid", |b| b.iter(|| create_simple_grid()));
+    c.bench_function("create_simple_grid_with_vec", |b| {
+        b.iter(|| create_simple_grid_with_vec())
+    });
+
+    // Simple Copy benchmarks
     c.bench_function("simple_copy_method_one", |b| {
         b.iter(|| simple_copy_method_one())
     });
@@ -188,38 +182,34 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("simple_copy_method_four", |b| {
         b.iter(|| simple_copy_method_four())
     });
+
+    // Atomic Copy benchmarks
     c.bench_function("atomic_copy_method_one", |b| {
         b.iter(|| atomic_copy_method_one())
     });
-    c.bench_function("atomic_method_two", |b| b.iter(|| atomic_method_two()));
-    c.bench_function("atomic_method_three", |b| b.iter(|| atomic_method_three()));
-    c.bench_function("atomic_method_four", |b| b.iter(|| atomic_method_four()));
-    // c.bench_function("single_threaded", |b| b.iter(|| single_threaded()));
-    // c.bench_function("create_atomic_generator", |b| {
-    //     b.iter(|| create_atomic_generator())
-    // });
-    // c.bench_function("create_ref_cell_generator", |b| {
-    //     b.iter(|| create_ref_cell_generator())
-    // });
-    // c.bench_function("atomic_generator_safe_caching", |b| {
-    //     b.iter(|| atomic_generator_safe_caching())
-    // });
-    // c.bench_function("atomic_generator_unsafe_caching", |b| {
-    //     b.iter(|| atomic_generator_unsafe_caching())
-    // });
-    // c.bench_function("ref_cell_generator_caching", |b| {
-    //     b.iter(|| ref_cell_generator_caching())
-    // });
-    // c.bench_function("unsafe_atomic_generation", |b| {
-    //     b.iter(|| unsafe_atomic_generation())
-    // });
-    // c.bench_function("safe_atomic_generation", |b| {
-    //     b.iter(|| safe_atomic_generation())
-    // });
-    // c.bench_function("unsafe_simple_cell_generation", |b| {
-    //     b.iter(|| unsafe_simple_cell_generation())
-    // });
+    c.bench_function("atomic_copy_method_two", |b| {
+        b.iter(|| atomic_copy_method_two())
+    });
+    c.bench_function("atomic_copy_method_three", |b| {
+        b.iter(|| atomic_copy_method_three())
+    });
+    c.bench_function("atomic_copy_method_four", |b| {
+        b.iter(|| atomic_copy_method_four())
+    });
+
+    // Generation benchmarks
+    c.bench_function("unsafe_atomic_generation", |b| {
+        b.iter(|| unsafe_atomic_generation())
+    });
+    c.bench_function("safe_atomic_generation", |b| {
+        b.iter(|| safe_atomic_generation())
+    });
+    c.bench_function("unsafe_simple_cell_generation", |b| {
+        b.iter(|| unsafe_simple_cell_generation())
+    });
 }
+
+/* Main */
 
 criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);

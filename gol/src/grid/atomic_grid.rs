@@ -18,6 +18,10 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
         }
 
         Self { cells }
+
+        // This is 26 to 40% slower than the previous
+        // let cells = vec![AtomicCell::new(); H * W];
+        // Self { cells }
     }
 
     #[inline]
@@ -549,5 +553,150 @@ mod test {
             assert!(cell.alive());
             assert!(cell.neighbors() == 8);
         }
+    }
+}
+
+// TODO: Remove me
+#[cfg(test)]
+mod t {
+    #![allow(warnings)]
+
+    use std::sync::Mutex;
+    use std::thread;
+    use std::{cell::UnsafeCell, fmt::Debug, sync::Arc};
+
+    struct Wrapper<T>(UnsafeCell<Vec<T>>);
+    impl<T> Wrapper<T> {
+        fn get(&self) -> *mut Vec<T> {
+            self.0.get()
+        }
+
+        fn new(vec: Vec<T>) -> Self {
+            Self(UnsafeCell::new(vec))
+        }
+
+        fn split_at(&self, idx: usize) -> (&[T], &[T]) {
+            let x = self.0.get();
+            let y = unsafe { &*x };
+            y.split_at(idx)
+        }
+    }
+    unsafe impl<T> Sync for Wrapper<T> {}
+
+    fn foo<T: Debug>(slice: &[T], vec: Arc<Wrapper<T>>) -> Arc<Wrapper<T>> {
+        let x = vec.0.get();
+        let y = unsafe { &*x };
+        for i in y.iter() {
+            println!("{:?}", i);
+        }
+
+        vec
+    }
+
+    #[test]
+    pub fn move_ownership_of_cache_share_state() {
+        // Must be shared between threads
+        let vec = vec![1, 2, 3, 4];
+        let vec = Wrapper::new(vec);
+
+        // Split the vector into slices
+        // TODO: Currently limited at 2
+        let (slice1, slice2) = vec.split_at(2);
+
+        // Clone the slices to move them into threads
+        let slice1 = slice1.to_vec();
+        let slice2 = slice2.to_vec();
+
+        // Reference to the original vector with interior mutability
+        let vec = Arc::new(vec);
+
+        // Spawn threads
+        let v1 = Arc::clone(&vec);
+        let t1 = thread::spawn(move || foo(&slice1, v1));
+        let v2 = Arc::clone(&vec);
+        let t2 = thread::spawn(move || foo(&slice2, v2));
+
+        // Join threads and collect results
+        let result1 = t1.join().unwrap().to_owned().0.get();
+        let result2 = t2.join().unwrap().to_owned().0.get();
+
+        println!("Result from foo: {:?}", result1);
+        println!("Result from bar: {:?}", result2);
+
+        let vec = vec![1, 2, 3, 4];
+        let v1 = &vec[0..2];
+        let v2 = &vec[2..4];
+    }
+
+    #[test]
+    fn move_ownership_of_cache_and_state() {
+        // Each thread sets a range of the state and cache to 1 and 0 respectively
+        fn spawn_thread(
+            state: &Arc<Mutex<Vec<i32>>>,
+            cache: &Arc<Mutex<Vec<i32>>>,
+        ) -> thread::JoinHandle<()> {
+            let state = Arc::clone(state);
+            let cache = Arc::clone(cache);
+
+            let t1 = thread::spawn(move || {
+                let mut cache = cache.lock().unwrap();
+                let mut state = state.lock().unwrap();
+
+                for c in cache.iter_mut() {
+                    *c = 0;
+                }
+                for s in state.iter_mut() {
+                    *s = 1;
+                }
+            });
+            t1
+        }
+
+        let state = vec![9; 4];
+        let cache = vec![9; 4];
+
+        // Cache ranges
+        let (c1, c2) = cache.split_at(2);;
+        let c1 = Arc::new(Mutex::new(c1.to_vec()));
+        let c2 = Arc::new(Mutex::new(c2.to_vec()));
+
+        // State ranges
+        let (s1, s2) = state.split_at(2);
+        let s1 = Arc::new(Mutex::new(s1.to_vec()));
+        let s2 = Arc::new(Mutex::new(s2.to_vec()));
+
+        let t1 = spawn_thread(&s1, &c1);
+        let t2 = spawn_thread(&s2, &c2);
+
+        t1.join().unwrap();
+        t2.join().unwrap();
+
+        let s1 = Arc::clone(&s1);
+        let state = s1.lock().unwrap();
+        assert_eq!(state.iter().sum::<i32>(), state.len() as i32);
+
+        let c1 = Arc::clone(&c1);
+        let cache = c1.lock().unwrap();
+        assert_eq!(cache.iter().sum::<i32>(), 0);
+
+        let s2 = Arc::clone(&s2);
+        let state = s2.lock().unwrap();
+        assert_eq!(state.iter().sum::<i32>(), state.len() as i32);
+
+        let c2 = Arc::clone(&c2);
+        let cache = c2.lock().unwrap();
+        assert_eq!(cache.iter().sum::<i32>(), 0);
+    }
+
+
+    #[test]
+    //TODO: Benchmark with other cache options
+    pub fn test_memswap_vectors() {
+        const SIZE: usize = 1000;
+        let mut cells: Vec<u8> = vec![1; SIZE];
+        let mut cache: Vec<u8> = vec![0; SIZE];
+
+        std::mem::swap(&mut cells, &mut cache);
+        assert!(cells.iter().all(|&x| x == 0));
     }
 }
