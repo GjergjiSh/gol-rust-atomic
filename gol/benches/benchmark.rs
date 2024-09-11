@@ -41,7 +41,7 @@ pub fn atomic_generator_safe_caching() {
     for cell in grid.iter() {
         cell.store(0b0001_0001);
     }
-    let mut atomic_generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
+    let mut atomic_generator = AtomicGenerator::<H, W>::new(Arc::new(grid));
     atomic_generator.update_cache();
 }
 
@@ -50,7 +50,7 @@ pub fn atomic_generator_unsafe_caching() {
     for cell in grid.iter() {
         cell.store(0b0001_0001);
     }
-    let atomic_generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
+    let atomic_generator = AtomicGenerator::<H, W>::new(Arc::new(grid));
     unsafe { atomic_generator.u_update_cache() };
 }
 
@@ -70,9 +70,9 @@ pub fn ref_cell_generator_caching() {
 
 pub fn unsafe_atomic_generation() {
     let grid = AtomicGrid::<H, W>::new();
-    let generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
+    let generator = AtomicGenerator::<H, W>::new(Arc::new(grid));
 
-    for cell in grid.iter() {
+    for cell in generator.grid().iter() {
         cell.store(0b0001_0001);
     }
 
@@ -82,9 +82,9 @@ pub fn unsafe_atomic_generation() {
 
 pub fn safe_atomic_generation() {
     let grid = AtomicGrid::<H, W>::new();
-    let mut generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
+    let mut generator = AtomicGenerator::<H, W>::new(Arc::new(grid));
 
-    for cell in grid.iter() {
+    for cell in generator.grid().iter() {
         cell.store(0b0001_0001);
     }
 
@@ -159,7 +159,7 @@ pub fn atomic_copy_method_six() {
 
 pub fn single_threaded() {
     let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
-    let grid = Arc::new(&grid);
+    let grid = Arc::new(grid);
     randomize_grid(&grid);
 
     let generator = AtomicGenerator::<H, W>::new(Arc::clone(&grid));

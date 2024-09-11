@@ -58,7 +58,8 @@ mod test {
     fn test_create_atomic_grid_from_file() {
         const H: usize = 6;
         const W: usize = 6;
-        let test_grid = r#"C:\Users\ACER\Repos\gol-atomic\resources\test\corner_block.csv"#;
+        //TODO: Fix path
+        let test_grid = r#"../../resources/test/corner_block.csv"#;
         let test_grid = create_atomic_grid_from_file::<H, W>(&test_grid);
 
         let c1 = test_grid.get(0, 0);

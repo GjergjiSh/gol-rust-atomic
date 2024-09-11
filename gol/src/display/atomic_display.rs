@@ -8,15 +8,15 @@ const COLOR_DEAD: u32 = 0x000000; // Black
 const SCALE: usize = 10; // Upscaling factor
 
 // AtomicDisplay window for the Game of Life
-pub struct AtomicDisplay<'a, const H: usize, const W: usize> {
-    grid: Arc<&'a AtomicGrid<H, W>>,
+pub struct AtomicDisplay<const H: usize, const W: usize> {
+    grid: Arc<AtomicGrid<H, W>>,
     window: Window,
     delay: u64,
 }
 
 // Implement AtomicDisplay
-impl<'a, const H: usize, const W: usize> AtomicDisplay<'a, H, W> {
-    pub fn new(grid: Arc<&'a AtomicGrid<H, W>>, delay: u64) -> Self {
+impl<const H: usize, const W: usize> AtomicDisplay<H, W> {
+    pub fn new(grid: Arc<AtomicGrid<H, W>>, delay: u64) -> Self {
         let window = Window::new(
             "Conway's Game of Life",
             W * SCALE,
@@ -68,7 +68,7 @@ mod tests {
         const GENERATIONS: usize = 500;
 
         let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
-        let grid = Arc::new(&grid);
+        let grid = Arc::new(grid);
         grid.spawn_shape((0, 0), &GLIDER_OFFSETS);
 
         let generator = AtomicGenerator::<H, W>::new(Arc::clone(&grid));
