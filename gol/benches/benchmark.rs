@@ -140,6 +140,21 @@ pub fn atomic_copy_method_four() {
     }
 }
 
+pub fn atomic_copy_method_five() {
+    let cells = make_atomic_box(SIZE);
+    let cache = make_atomic_box(SIZE);
+
+    for i in 0..SIZE {
+        cache[i].store(cells[i].load(Ordering::Relaxed), Ordering::Relaxed);
+    }
+}
+
+pub fn atomic_copy_method_six() {
+    let mut cells: Vec<AtomicU8> = (0..SIZE).map(|_| AtomicU8::new(1)).collect();
+    let mut cache: Vec<AtomicU8> = Vec::<AtomicU8>::with_capacity(SIZE);
+    std::mem::swap(&mut cells, &mut cache);
+}
+
 /* Atomic Single Threaded Generation */
 
 pub fn single_threaded() {
@@ -217,6 +232,12 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
     c.bench_function("atomic_copy_method_four", |b| {
         b.iter(|| atomic_copy_method_four())
+    });
+    c.bench_function("atomic_copy_method_five", |b| {
+        b.iter(|| atomic_copy_method_five())
+    });
+    c.bench_function("atomic_copy_method_six", |b| {
+        b.iter(|| atomic_copy_method_six())
     });
 
     // Generation benchmarks
