@@ -125,6 +125,11 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
         );
     }
 
+    // #[inline]
+    // fn clone_from(&mut self, source: &Self) {
+    //     *self = source.clone()
+    // }
+
     #[inline]
     // Return the size of the grid
     pub fn size(&self) -> usize {
@@ -137,6 +142,13 @@ impl<const H: usize, const W: usize> AtomicGrid<H, W> {
         self.cells.iter()
     }
 }
+
+// impl<const H: usize, const W: usize> ::core::clone::Clone for AtomicGrid<H, W> {
+//     #[inline]
+//     fn clone(&self) -> Self {
+//         Self { cells: ::core::clone::Clone::clone(&self.cells) }
+//     }
+// }
 
 // Implement Display for Grid
 impl<const H: usize, const W: usize> std::fmt::Display for AtomicGrid<H, W> {

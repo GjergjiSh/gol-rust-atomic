@@ -106,6 +106,18 @@ impl<const H: usize, const W: usize> SimpleGrid<H, W> {
         self.0.iter()
     }
 
+    #[inline]
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<SimpleCell> {
+        self.0.iter_mut()
+    }
+
+    #[inline]
+    pub fn copy_from(&mut self, other: &Self) {
+        for i in 0..H * W {
+            self.0[i] = other.0[i];
+        }
+    }
+
     pub fn print(&self) {
         // Print the top border with column indices
         print!("   "); // Space for row indices

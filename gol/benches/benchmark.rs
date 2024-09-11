@@ -38,12 +38,18 @@ ref_cell_generator_caching time:   [571.54 ns 574.05 ns 576.89 ns]
 
 pub fn atomic_generator_safe_caching() {
     let grid = AtomicGrid::<H, W>::new();
+    for cell in grid.iter() {
+        cell.store(0b0001_0001);
+    }
     let mut atomic_generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
     atomic_generator.update_cache();
 }
 
 pub fn atomic_generator_unsafe_caching() {
     let grid = AtomicGrid::<H, W>::new();
+    for cell in grid.iter() {
+        cell.store(0b0001_0001);
+    }
     let atomic_generator = AtomicGenerator::<H, W>::new(Arc::new(&grid));
     unsafe { atomic_generator.u_update_cache() };
 }
@@ -51,8 +57,13 @@ pub fn atomic_generator_unsafe_caching() {
 pub fn ref_cell_generator_caching() {
     let generator = UnsafeCellGenerator::<H, W>::new();
     let state = &mut *generator.grid().get_mut();
+
+    for cell in state.iter_mut() {
+        cell.store(0b0001_0001);
+    }
+
     let cache = &mut *generator.cache().get_mut();
-    cache.clone_from(&state);
+    cache.copy_from(&state);
 }
 
 /* Generation Benchmarks */
@@ -148,6 +159,17 @@ pub fn single_threaded() {
 /* Register Benchmarks */
 
 fn criterion_benchmark(c: &mut Criterion) {
+    //  Caching benchmarks
+    c.bench_function("atomic_generator_safe_caching", |b| {
+        b.iter(|| atomic_generator_safe_caching())
+    });
+    c.bench_function("atomic_generator_unsafe_caching", |b| {
+        b.iter(|| atomic_generator_unsafe_caching())
+    });
+    c.bench_function("ref_cell_generator_caching", |b| {
+        b.iter(|| ref_cell_generator_caching())
+    });
+
     // Misc benchmarks
     c.bench_function("u8_vector_creation_method_one", |b| {
         b.iter(|| u8_vector_creation_method_one())
