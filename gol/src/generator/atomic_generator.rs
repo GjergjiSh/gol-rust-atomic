@@ -31,8 +31,9 @@ impl<const H: usize, const W: usize> AtomicGenerator<H, W> {
         &self.cache
     }
 
+    //TODO: Make private
     #[inline]
-    fn _update_grid(&self) {
+    pub fn _update_grid(&self) {
         for x in 0..H {
             for y in 0..W {
                 if let ControlFlow::Break(_) = self.update_cell_state(x, y) {
@@ -42,7 +43,21 @@ impl<const H: usize, const W: usize> AtomicGenerator<H, W> {
         }
     }
 
-fn update_cell_state(&self, x: usize, y: usize) -> ControlFlow<()> {
+    #[inline]
+    pub fn update_grid_range(&self, top_left: (usize, usize), bottom_right: (usize, usize)) {
+        let (start_x, start_y) = top_left;
+        let (end_x, end_y) = bottom_right;
+
+        for x in start_x..end_x {
+            for y in start_y..end_y {
+                if let ControlFlow::Break(_) = self.update_cell_state(x, y) {
+                    continue;
+                }
+            }
+        }
+    }
+
+    fn update_cell_state(&self, x: usize, y: usize) -> ControlFlow<()> {
         let x = x as isize;
         let y = y as isize;
 
@@ -65,21 +80,6 @@ fn update_cell_state(&self, x: usize, y: usize) -> ControlFlow<()> {
         }
 
         ControlFlow::Continue(())
-    }
-
-
-    #[inline]
-    pub fn update_grid_range(&self, top_left: (usize, usize), bottom_right: (usize, usize)) {
-        let (start_x, start_y) = top_left;
-        let (end_x, end_y) = bottom_right;
-
-        for x in start_x..=end_x {
-            for y in start_y..=end_y {
-                if let ControlFlow::Break(_) = self.update_cell_state(x, y) {
-                    continue;
-                }
-            }
-        }
     }
 
     #[inline]

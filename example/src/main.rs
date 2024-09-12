@@ -11,10 +11,12 @@ const W: usize = 100;
 const GENERATIONS: usize = 1000;
 const DISPLAY: bool = true;
 const DISPLAY_DELAY: u64 = 0;
-const BENCHMARKS: usize = 10;
+const BENCHMARKS: usize = 1;
+const MULTI_THREADED: bool = true;
+const THREAD_COUNT: usize = 4;
 
 // Multi threaded
-pub fn multi_threaded(thread_count: usize) -> (Duration, Duration, f32) {
+pub fn multi_threaded() -> (Duration, Duration, f32) {
     let grid: AtomicGrid<H, W> = AtomicGrid::<H, W>::new();
     let grid = Arc::new(grid);
 
@@ -26,71 +28,130 @@ pub fn multi_threaded(thread_count: usize) -> (Duration, Duration, f32) {
     let mut display = None;
 
     if DISPLAY {
-        display = Some(AtomicDisplay::<H, W>::new(grid, DISPLAY_DELAY));
+        display = Some(AtomicDisplay::<H, W>::new(Arc::clone(&grid), DISPLAY_DELAY));
     }
 
-    // NOTE: +1 for the main thread
-    let barrier = Arc::new(Barrier::new(thread_count + 1));
-    let signal = Arc::new((Mutex::new(false), Condvar::new()));
+    let barrier = Arc::new(Barrier::new(THREAD_COUNT + 1)); // +1 for the main thread
+    let cache_updated = Arc::new((Mutex::new(false), Condvar::new()));
+    let threads_done = Arc::new((Mutex::new(0), Condvar::new()));
+    let stop_signal = Arc::new(Mutex::new(false));
 
     let mut handles = Vec::new();
 
-    let rows_per_thread = H / thread_count;
-    let cols_per_thread = W / thread_count;
-
-    for i in 0..thread_count {
+    for i in 0..THREAD_COUNT {
         let generator = Arc::clone(&generator);
         let barrier = Arc::clone(&barrier);
-        let signal = Arc::clone(&signal);
+        let cache_updated = Arc::clone(&cache_updated);
+        let threads_done = Arc::clone(&threads_done);
+        let stop_signal = Arc::clone(&stop_signal);
 
-        let start_row = i * rows_per_thread;
-        let end_row = if i == thread_count - 1 {
-            H
-        } else {
-            (i + 1) * rows_per_thread
-        };
+        let rows_per_thread = H / THREAD_COUNT;
+        let cols_per_thread = W / THREAD_COUNT;
 
-        let start_col = i * cols_per_thread;
-        let end_col = if i == thread_count - 1 {
-            W
-        } else {
-            (i + 1) * cols_per_thread
-        };
+        let start_row = (i / THREAD_COUNT) * rows_per_thread;
+        let end_row = start_row + rows_per_thread;
+
+        let start_col = (i % THREAD_COUNT) * cols_per_thread;
+        let end_col = start_col + cols_per_thread;
 
         handles.push(thread::spawn(move || {
-            // Wait until the state is cached
-            let (lock, cvar) = &*signal;
-            let mut ready = lock.lock().unwrap();
-            while !*ready {
-                ready = cvar.wait(ready).unwrap();
+            loop {
+                // Wait for cache to be updated
+                let (cache_lock, cache_cvar) = &*cache_updated;
+                let mut cache_ready = cache_lock.lock().unwrap();
+                while !*cache_ready {
+                    cache_ready = cache_cvar.wait(cache_ready).unwrap();
+                }
+                drop(cache_ready);
+
+                // Check if we should stop
+                if *stop_signal.lock().unwrap() {
+                    println!("Thread {} stopping", i);
+                    break;
+                }
+
+                println!(
+                    "Thread {} processing rows {}-{} cols {}-{}",
+                    i, start_row, end_row, start_col, end_col
+                );
+                generator.update_grid_range((start_row, start_col), (end_row, end_col));
+
+                // Signal that this thread is done
+                let (done_lock, done_cvar) = &*threads_done;
+                let mut done_count = done_lock.lock().unwrap();
+                *done_count += 1;
+                if *done_count == THREAD_COUNT {
+                    done_cvar.notify_all();
+                }
+                drop(done_count);
+
+                // Wait for all threads to finish processing
+                barrier.wait();
             }
-            drop(ready);
-
-            // After the state is cached we are free to generate
-            generator.update_grid_range((start_row, start_col), (end_row, end_col));
-
-            barrier.wait();
         }));
     }
 
     let start = std::time::Instant::now();
-    match display {
-        Some(ref mut display) => {
-            for _ in 0..GENERATIONS {
-                unsafe {
-                    generator.u_update_cache();
-                }
-                let (lock, cvar) = &*signal;
-                let mut ready = lock.lock().unwrap();
-                *ready = true;
-                cvar.notify_all();
-                barrier.wait();
-                display.update();
-            }
+    for _ in 0..GENERATIONS {
+        // Update the cache for the next generation
+        unsafe {
+            generator.u_update_cache();
         }
-        None => for _ in 0..GENERATIONS {},
+
+        // Reset the threads_done counter
+        let (done_lock, _) = &*threads_done;
+        let mut done_count = done_lock.lock().unwrap();
+        *done_count = 0;
+        drop(done_count);
+
+        // Signal that cache is updated
+        let (cache_lock, cache_cvar) = &*cache_updated;
+        {
+            let mut cache_ready = cache_lock.lock().unwrap();
+            *cache_ready = true;
+            cache_cvar.notify_all();
+        }
+
+        // Wait for all threads to finish processing
+        let (done_lock, done_cvar) = &*threads_done;
+        let mut done_count = done_lock.lock().unwrap();
+        while *done_count < THREAD_COUNT {
+            done_count = done_cvar.wait(done_count).unwrap();
+        }
+        drop(done_count);
+
+        // Update display if necessary
+        if let Some(ref mut display) = display {
+            display.update();
+        }
+
+        // Reset the cache_updated flag for the next generation
+        let mut cache_ready = cache_updated.0.lock().unwrap();
+        *cache_ready = false;
+
+        // Wait for all threads to reach the barrier
+        barrier.wait();
     }
     let end = std::time::Instant::now();
+
+    // Signal threads to stop
+    {
+        let mut stop = stop_signal.lock().unwrap();
+        *stop = true;
+    }
+
+    // Wake up threads one last time so they can see the stop signal
+    let (cache_lock, cache_cvar) = &*cache_updated;
+    {
+        let mut cache_ready = cache_lock.lock().unwrap();
+        *cache_ready = true;
+        cache_cvar.notify_all();
+    }
+
+    for thread in handles {
+        thread.join().unwrap();
+    }
+
     let elapsed = end - start;
     let elapsed_per_generation = elapsed / GENERATIONS as u32;
     println!(
@@ -105,10 +166,6 @@ pub fn multi_threaded(thread_count: usize) -> (Duration, Duration, f32) {
     let kb_processed = H * W * GENERATIONS / 1024;
     let kb_per_second = kb_processed as f32 / (end - start).as_secs_f32();
     println!("Processed {} KB at {:.2} KB/s", kb_processed, kb_per_second);
-
-    for thread in handles {
-        thread.join().unwrap();
-    }
 
     (elapsed, elapsed_per_generation, kb_per_second)
 }
@@ -170,11 +227,19 @@ fn main() {
     let mut total_kb_per_second = 0.0;
 
     for _ in 0..BENCHMARKS {
-        // let (elapsed, elapsed_per_generation, kb_per_second) = single_threaded();
-        let (elapsed, elapsed_per_generation, kb_per_second) = multi_threaded(4);
-        total_elapsed += elapsed.as_secs_f64();
-        total_elapsed_per_generation += elapsed_per_generation.as_secs_f64();
-        total_kb_per_second += kb_per_second;
+        if MULTI_THREADED {
+            println!("Running multi-threaded benchmark");
+            let (elapsed, elapsed_per_generation, kb_per_second) = multi_threaded();
+            total_elapsed += elapsed.as_secs_f64();
+            total_elapsed_per_generation += elapsed_per_generation.as_secs_f64();
+            total_kb_per_second += kb_per_second;
+        } else {
+            println!("Running single-threaded benchmark");
+            let (elapsed, elapsed_per_generation, kb_per_second) = single_threaded();
+            total_elapsed += elapsed.as_secs_f64();
+            total_elapsed_per_generation += elapsed_per_generation.as_secs_f64();
+            total_kb_per_second += kb_per_second;
+        }
     }
 
     let avg_elapsed = total_elapsed / BENCHMARKS as f64;
