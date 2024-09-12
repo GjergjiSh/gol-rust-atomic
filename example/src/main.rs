@@ -1,7 +1,5 @@
 use std::{
-    sync::{Barrier, Condvar, Mutex},
-    thread,
-    time::Duration,
+    cmp::min, sync::{Barrier, Condvar, Mutex}, thread, time::Duration
 };
 
 use gol::*;
@@ -45,14 +43,13 @@ pub fn multi_threaded() -> (Duration, Duration, f32) {
         let threads_done = Arc::clone(&threads_done);
         let stop_signal = Arc::clone(&stop_signal);
 
-        let rows_per_thread = H / THREAD_COUNT;
-        let cols_per_thread = W / THREAD_COUNT;
+        // Calculate the size of each chunk
+        let chunk_height = H / THREAD_COUNT;
+        let remainder = H % THREAD_COUNT;
 
-        let start_row = (i / THREAD_COUNT) * rows_per_thread;
-        let end_row = start_row + rows_per_thread;
-
-        let start_col = (i % THREAD_COUNT) * cols_per_thread;
-        let end_col = start_col + cols_per_thread;
+        // Calculate the start and end rows for this thread
+        let start_row = i * chunk_height + min(i, remainder);
+        let end_row = start_row + chunk_height + if i < remainder { 1 } else { 0 };
 
         handles.push(thread::spawn(move || {
             loop {
@@ -66,15 +63,10 @@ pub fn multi_threaded() -> (Duration, Duration, f32) {
 
                 // Check if we should stop
                 if *stop_signal.lock().unwrap() {
-                    println!("Thread {} stopping", i);
                     break;
                 }
 
-                println!(
-                    "Thread {} processing rows {}-{} cols {}-{}",
-                    i, start_row, end_row, start_col, end_col
-                );
-                generator.update_grid_range((start_row, start_col), (end_row, end_col));
+                generator.update_grid_range((start_row, 0), (end_row, W));
 
                 // Signal that this thread is done
                 let (done_lock, done_cvar) = &*threads_done;
